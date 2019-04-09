@@ -54,7 +54,7 @@ def parse_all_data(inconns):
     alldatas = []
     letters = string.ascii_lowercase + string.ascii_uppercase
     for index, inconn in enumerate(inconns):
-        alldata = pd.read_csv(i, sep="\t", header=0)
+        alldata = pd.read_csv(inconn, sep="\t", header=0)
         inconn.close()
 
         chrlist = alldata["chrom"].to_list()
@@ -123,7 +123,7 @@ if __name__ == "__main__":
     
     # make the combined data frame
     alldatas = parse_all_data(inconns)
-    big_alldata = pd.concat(alldatas)
+    big_alldata = pd.concat(alldatas, ignore_index=True)
     m_alldata = pd.melt(big_alldata, id_vars=['chrom', 'start', 'end', 'start_offset', 'end_offset', 'cross'])
     if self:
         mm_alldata = m_alldata[m_alldata.apply(lambda x: x['variable'] in (my_y, alt_y), axis=1)]
