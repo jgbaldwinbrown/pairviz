@@ -82,9 +82,10 @@ if __name__ == "__main__":
     winstep = 10000
     wholechrom = False
     okdist = 5000000
+    mummer_query = ""
     if args.standard_input or not args.input:
         inconns.append(sys.stdin)
-    if input:
+    if args.input:
         for i in args.input:
             inconns.append(open(i, "r"))
     if args.window_size:
@@ -95,9 +96,6 @@ if __name__ == "__main__":
         okdist = int(args.distance)
     if args.chromosome:
         wholechrom = True
-    #winsize = int(sys.argv[1])
-    #winstep = int(sys.argv[2])
-    print(inconns)
 
     if not wholechrom:
         self_hits = {}
