@@ -119,10 +119,22 @@ def conv_file(inconn, coord_conv, mummer_query):
             print(l)
             continue
         r1, r2, c1, s1, c2, s2, p1, p2 = parse_hits(sl)
+        #print(mummer_query)
+        #print(s1, s2)
+        #print(c1, c2)
+        #print(p1, p2)
+        #print(coord_conv[(c1, p1)])
+        #print(coord_conv[(c2, p2)])
         if s1 == mummer_query:
-            c1, p1 = coord_conv[(c1, p1)]
+            try:
+                c1, p1 = coord_conv[(c1, p1)]
+            except KeyError:
+                c1, p1 = ("!", 0)
         if s2 == mummer_query:
-            c2, p2 = coord_conv[(c2, p2)]
+            try:
+                c1, p1 = coord_conv[(c1, p1)]
+            except KeyError:
+                c2, p2 = ("!", 0)
         print_pairline(l, c1, s1, p1, c2, s2, p2)
     return(None)
 
@@ -146,7 +158,7 @@ def main():
     
     parser.add_argument("input", nargs="*", help="One or more .pairs files to use as input (default = stdin).")
     parser.add_argument("-i", "--standard_input", help="Take standard input and other input files (default = False)", action="store_true")
-    parser.add_argument("-q", "--mummer_query", nargs=1, help="If you have a mummer .delta file, specify the genotype that was the mummer query. Its coordinates will be converted to the subject's coordinates.")
+    parser.add_argument("-q", "--mummer_query", help="If you have a mummer .delta file, specify the genotype that was the mummer query. Its coordinates will be converted to the subject's coordinates.")
     parser.add_argument("-m", "--mummer_delta", help="Mummer .delta file to convert read coordinates.")
 
     args = parser.parse_args()
