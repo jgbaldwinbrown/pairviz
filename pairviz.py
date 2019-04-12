@@ -113,7 +113,7 @@ if __name__ == "__main__":
                     tot_badreads += 1
                     continue
                 r1, r2, c1, s1, c2, s2, p1, p2 = parse_hits(sl)
-                if abs(p1 - p2) < 5000000:
+                if abs(p1 - p2) < okdist:
                     tot_chromreads += 1
                     if c1 == c2 and s1 == s2:
                         add_hits(self_hits, c1,s1,p1, c2,s2,p2, winsize, winstep)

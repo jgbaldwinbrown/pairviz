@@ -49,7 +49,7 @@ def get_color_col(catcol):
     colorcol = catcol.apply(lambda x: colordict[x])
     return colorcol
 
-def parse_all_data(inconns):
+def parse_all_data(inconns, chromspace):
     """Parse input files, return a list with one data frame per input file"""
     alldatas = []
     letters = string.ascii_lowercase + string.ascii_uppercase
@@ -70,7 +70,7 @@ def parse_all_data(inconns):
         alldatas.append(alldata)
     return(alldatas)
 
-if __name__ == "__main__":
+def main():
 
     # parse all arguments
     parser = argparse.ArgumentParser("Visualize Hi-C pairing rates as a 2-d line plot.")
@@ -122,7 +122,7 @@ if __name__ == "__main__":
         alt_y = 'alt_hits'
     
     # make the combined data frame
-    alldatas = parse_all_data(inconns)
+    alldatas = parse_all_data(inconns, chromspace)
     big_alldata = pd.concat(alldatas, ignore_index=True)
     m_alldata = pd.melt(big_alldata, id_vars=['chrom', 'start', 'end', 'start_offset', 'end_offset', 'cross'])
     if self:
@@ -142,6 +142,8 @@ if __name__ == "__main__":
     else:
         plt.show()
 
+if __name__ == "__main__":
+    main()
 #chrom   start   end     hit_type        alt_hit_type    hits    alt_hits        pair_prop       alt_prop        pair_totprop    pair_totgoodprop        pair_totcloseprop       winsize winstep
 #2L      0       10001   paired  self    9       26780   0.00033595879   0.99966404      5.4952663e-08   6.5204028e-08   6.5352044e-08   10001   1000
 #2L      1000    11001   paired  self    9       26780   0.00033595879   0.99966404      5.4952663e-08   6.5204028e-08   6.5352044e-08   10001   1000
