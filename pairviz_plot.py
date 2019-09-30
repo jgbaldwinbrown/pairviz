@@ -49,10 +49,13 @@ def get_color_col(catcol):
     colorcol = catcol.apply(lambda x: colordict[x])
     return colorcol
 
-def parse_all_data(inconns, chromspace):
+def parse_all_data(inconns, chromspace, names):
     """Parse input files, return a list with one data frame per input file"""
     alldatas = []
-    letters = string.ascii_lowercase + string.ascii_uppercase
+    if names:
+        letters = names
+    else:
+        letters = string.ascii_lowercase + string.ascii_uppercase
     for index, inconn in enumerate(inconns):
         alldata = pd.read_csv(inconn, sep="\t", header=0)
         inconn.close()
@@ -82,6 +85,7 @@ def main():
     parser.add_argument("-c", "--chromspace", help="bp of space to put between chromosomes in plot (default = 5000000).")
     parser.add_argument("-l", "--log", help="Log-scale the y-axis (default = False).", action="store_true")
     parser.add_argument("-i", "--stdin", help="take input from stdin along with other inputs.", action="store_true")
+    parser.add_argument("-n", "--names", help="Names to use for plotting of input files (default = alphabetical letters).")
 
     args = parser.parse_args()
 
@@ -96,6 +100,7 @@ def main():
     chromspace = 5000000
     log = False
     pdf = False
+    names = None
     if args.output:
         output = args.output
         pdf = True
@@ -112,6 +117,8 @@ def main():
         chromspace = args.chromspace
     if args.log:
         log = args.log
+    if args.names:
+        names = args.names
 
     # set proportion vs total hits
     if proportion:
@@ -122,7 +129,7 @@ def main():
         alt_y = 'alt_hits'
     
     # make the combined data frame
-    alldatas = parse_all_data(inconns, chromspace)
+    alldatas = parse_all_data(inconns, chromspace, names)
     big_alldata = pd.concat(alldatas, ignore_index=True)
     m_alldata = pd.melt(big_alldata, id_vars=['chrom', 'start', 'end', 'start_offset', 'end_offset', 'cross'])
     if self:
