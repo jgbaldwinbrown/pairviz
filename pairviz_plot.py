@@ -60,8 +60,8 @@ def parse_all_data(inconns, chromspace, names):
         alldata = pd.read_csv(inconn, sep="\t", header=0)
         inconn.close()
 
-        chrlist = alldata["chrom"].to_list()
-        endlist = alldata["end"].to_list()
+        chrlist = alldata["chrom"].tolist()
+        endlist = alldata["end"].tolist()
 
         chroms = sorted(list(set([str(x) for x in chrlist])))
         chrmaxes = get_chrmaxes(chrlist, endlist)
@@ -138,8 +138,13 @@ def main():
         mm_alldata = m_alldata[m_alldata.apply(lambda x: x['variable'] in (my_y), axis=1)]
     mm_alldata['value'] = mm_alldata['value'].astype(float)
 
+    tempcols = [x for x in mm_alldata.columns]
+    tempcols[3] = "Genome position (bp)"
+    tempcols[-1] = "Hi-C contacts"
+    mm_alldata.columns = [x for x in tempcols]
+
     # Plot it
-    myplot=sns.relplot(x='start_offset', y='value', data=mm_alldata, hue='cross', style = 'variable', kind='line')
+    myplot=sns.relplot(x='Genome position (bp)', y='Hi-C contacts', data=mm_alldata, hue='cross', kind='line')
     if log:
         myplot.fig.get_axes()[0].set_yscale('log')
     
