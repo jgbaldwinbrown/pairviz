@@ -118,7 +118,7 @@ def main():
     if args.log:
         log = args.log
     if args.names:
-        names = args.names
+        names = args.names.split(',')
 
     # set proportion vs total hits
     if proportion:
