@@ -1,0 +1,4 @@
+#!/bin/bash
+set -e
+
+./pairviz.py <(gunzip -c /home/jgbaldwinbrown/Documents/work_stuff/drosophila/homologous_hybrid_mispairing/hi-c/pairviz/full_to_cooler/ixw_filt2.pairs.gz | head -n 10000000 )
