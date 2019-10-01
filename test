@@ -1,4 +1,4 @@
 #!/bin/bash
 set -e
 
-./pairviz.py <(gunzip -c testdata2.pairs.gz)
+./pairviz.py -g 260000000 <(gunzip -c testdata2.pairs.gz)
