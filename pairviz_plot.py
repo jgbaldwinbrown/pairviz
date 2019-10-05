@@ -11,6 +11,7 @@ import argparse
 import sys
 import seaborn as sns
 import string
+from matplotlib import rcParams
 
 def get_chrmaxes(chromlist, endlist):
     """Get the maximum position value in each chromosome"""
@@ -81,11 +82,14 @@ def main():
     parser.add_argument("-o", "--output", help="output path (default = out.pdf).")
     parser.add_argument("-t", "--title", help="Title of plot (default = \"Pairing Rate\").")
     parser.add_argument("-p", "--proportion", help="If included, plot as a proportion of total reads in the region, rather than absolute (default = False).", action="store_true")
+    parser.add_argument("-f", "--no_fpkm", help="If included, plot FPKM rather than read counts (default = False, can be combined with --proportion).", action="store_true")
     parser.add_argument("-s", "--self", help="Also plot self-interactions (default = False).", action="store_true")
     parser.add_argument("-c", "--chromspace", help="bp of space to put between chromosomes in plot (default = 5000000).")
     parser.add_argument("-l", "--log", help="Log-scale the y-axis (default = False).", action="store_true")
     parser.add_argument("-i", "--stdin", help="take input from stdin along with other inputs.", action="store_true")
     parser.add_argument("-n", "--names", help="Names to use for plotting of input files (default = alphabetical letters).")
+    parser.add_argument("-x", "--x_axis_name", help="X axis name.")
+    parser.add_argument("-y", "--y_axis_name", help="Y axis name.")
 
     args = parser.parse_args()
 
@@ -101,6 +105,9 @@ def main():
     log = False
     pdf = False
     names = None
+    use_fpkm = True
+    xname = "Genome position (bp)"
+    yname = "Hi-C contacts"
     if args.output:
         output = args.output
         pdf = True
@@ -119,14 +126,28 @@ def main():
         log = args.log
     if args.names:
         names = args.names.split(',')
+    if args.no_fpkm:
+        use_fpkm = False
+    if args.x_axis_name:
+        xname = args.x_axis_name
+    if args.y_axis_name:
+        yname = args.y_axis_name
 
     # set proportion vs total hits
-    if proportion:
-        my_y = 'pair_prop'
-        alt_y = 'alt_prop'
+    if not use_fpkm:
+        if proportion:
+            my_y = 'pair_prop'
+            alt_y = 'alt_prop'
+        else:
+            my_y = 'hits'
+            alt_y = 'alt_hits'
     else:
-        my_y = 'hits'
-        alt_y = 'alt_hits'
+        if proportion:
+            my_y = 'pair_prop_fpkm'
+            alt_y = 'alt_prop_fpkm'
+        else:
+            my_y = 'pair_fpkm'
+            alt_y = 'alt_fpkm'
     
     # make the combined data frame
     alldatas = parse_all_data(inconns, chromspace, names)
@@ -135,16 +156,20 @@ def main():
     if self:
         mm_alldata = m_alldata[m_alldata.apply(lambda x: x['variable'] in (my_y, alt_y), axis=1)]
     else:
-        mm_alldata = m_alldata[m_alldata.apply(lambda x: x['variable'] in (my_y), axis=1)]
+        mm_alldata = m_alldata[m_alldata.apply(lambda x: x['variable'] == my_y, axis=1)]
     mm_alldata['value'] = mm_alldata['value'].astype(float)
 
     tempcols = [x for x in mm_alldata.columns]
-    tempcols[3] = "Genome position (bp)"
-    tempcols[-1] = "Hi-C contacts"
+    tempcols[3] = xname
+    tempcols[-1] = yname
     mm_alldata.columns = [x for x in tempcols]
 
     # Plot it
-    myplot=sns.relplot(x='Genome position (bp)', y='Hi-C contacts', data=mm_alldata, hue='cross', kind='line')
+    #sns.set(rc={'figure.figsize':(12,6)})
+    #rcParams['figure.figsize'] = 12,6
+    #plt.figure(figsize=(12,6))
+    #fig, ax = plt.subplots(figsize=(12,6))
+    myplot=sns.relplot(x=xname, y=yname, data=mm_alldata, hue='cross', kind='line')
     if log:
         myplot.fig.get_axes()[0].set_yscale('log')
     
@@ -156,23 +181,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-#chrom   start   end     hit_type        alt_hit_type    hits    alt_hits        pair_prop       alt_prop        pair_totprop    pair_totgoodprop        pair_totcloseprop       winsize winstep
-#2L      0       10001   paired  self    9       26780   0.00033595879   0.99966404      5.4952663e-08   6.5204028e-08   6.5352044e-08   10001   1000
-#2L      1000    11001   paired  self    9       26780   0.00033595879   0.99966404      5.4952663e-08   6.5204028e-08   6.5352044e-08   10001   1000
-#chrom
-#start
-#end
-#hit_type
-#alt_hit_type
-#hits
-#alt_hits
-#pair_prop
-#alt_prop
-#pair_totprop
-#pair_totgoodprop
-#pair_totcloseprop
-#winsize
-#winstep
-#
-# start_offset
-# end_offset

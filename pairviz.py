@@ -19,7 +19,6 @@ def add_hits(hits, c1, s1, p1, c2, s2, p2, winsize, winstep):
     add_hit(hits, c2, s2, p2, winsize, winstep)
 
 def calc_fpkm(self_hits, pair_hits, winsize, genome_length):
-    print(self_hits)
     total_hits = 0
     for chromname, chrom in self_hits.items():
         for windowname, window in chrom.items():
@@ -97,7 +96,7 @@ def print_hits(hits, alt_hits, hit_type, alt_hit_type, tot_goodreads, tot_badrea
                                 winstep,
                 ))))
     else:
-        print("chrom\tstart\tend\thit_type\talt_hit_type\thits\talt_hits\tpair_prop\talt_prop\tpair_totprop\tpair_totgoodprop\tpair_totcloseprop\twinsize\twinstep\tself_fpkm\tpair_fpkm\tpair_prop_fpkm\talt_prop_fpkm\t")
+        print("chrom\tstart\tend\thit_type\talt_hit_type\thits\talt_hits\tpair_prop\talt_prop\tpair_totprop\tpair_totgoodprop\tpair_totcloseprop\twinsize\twinstep\tpair_fpkm\talt_fpkm\tpair_prop_fpkm\talt_prop_fpkm\t")
         for chrom in sorted(hits):
             for pos in sorted(hits[chrom]):
                 #print(hits[chrom][pos])
@@ -152,7 +151,7 @@ if __name__ == "__main__":
     parser.add_argument("-c", "--chromosome", help="Ignore sliding window analysis and perform a chromosome-wide count (default = False).", action="store_true")
     parser.add_argument("-i", "--standard_input", help="Take standard input and other input files (default = False)", action="store_true")
     parser.add_argument("-d", "--distance", help="Distance away that two reads can be before they are ignored (default = 5Mb)")
-    parser.add_argument("-f", "--no_fpkm", help="Calculate fpkm along with counts (default = False)")
+    parser.add_argument("-f", "--no_fpkm", help="Calculate fpkm along with counts (default = False)", action="store_true")
     parser.add_argument("-g", "--genome_length", help="Genome size for purpose of fpkm calculations (no default; required if fpkm=True)")
 
     args = parser.parse_args()
