@@ -151,8 +151,8 @@ if __name__ == "__main__":
     parser.add_argument("-c", "--chromosome", help="Ignore sliding window analysis and perform a chromosome-wide count (default = False).", action="store_true")
     parser.add_argument("-i", "--standard_input", help="Take standard input and other input files (default = False)", action="store_true")
     parser.add_argument("-d", "--distance", help="Distance away that two reads can be before they are ignored (default = 5Mb)")
-    parser.add_argument("-f", "--no_fpkm", help="Calculate fpkm along with counts (default = False)", action="store_true")
-    parser.add_argument("-g", "--genome_length", help="Genome size for purpose of fpkm calculations (no default; required if fpkm=True)")
+    parser.add_argument("-f", "--no_fpkm", help="Do not calculate fpkm along with counts (default = False)", action="store_true")
+    parser.add_argument("-g", "--genome_length", help="Genome size for purpose of fpkm calculations (no default; required if calculating fpkm)")
 
     args = parser.parse_args()
 
