@@ -1,0 +1,7 @@
+#!/bin/bash
+set -e
+
+rm ~/mybin/pair_coord
+rm ~/mybin/pair_snps
+rm ~/mybin/pairviz
+rm ~/mybin/pairviz_plot
