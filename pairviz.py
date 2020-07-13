@@ -61,11 +61,14 @@ def parse_hits(sl):
     p2 = int(sl[4])
     return(r1, r2, c1, s1, c2, s2, p1, p2)
 
-def print_hits(hits, alt_hits, hit_type, alt_hit_type, tot_goodreads, tot_badreads, tot_chromreads, winsize, winstep, get_fpkm, self_fpkm, pair_fpkm):
+def print_hits(hits, alt_hits, hit_type, alt_hit_type, tot_goodreads, tot_badreads, tot_chromreads, winsize, winstep, get_fpkm, self_fpkm, pair_fpkm, name):
     #print(hits)
     #print(alt_hits)
     if not get_fpkm:
-        print("chrom\tstart\tend\thit_type\talt_hit_type\thits\talt_hits\tpair_prop\talt_prop\tpair_totprop\tpair_totgoodprop\tpair_totcloseprop\twinsize\twinstep")
+        if name:
+            print("chrom\tstart\tend\thit_type\talt_hit_type\thits\talt_hits\tpair_prop\talt_prop\tpair_totprop\tpair_totgoodprop\tpair_totcloseprop\twinsize\twinstep\tname")
+        else:
+            print("chrom\tstart\tend\thit_type\talt_hit_type\thits\talt_hits\tpair_prop\talt_prop\tpair_totprop\tpair_totgoodprop\tpair_totcloseprop\twinsize\twinstep")
         for chrom in sorted(hits):
             for pos in sorted(hits[chrom]):
                 #print(hits[chrom][pos])
@@ -79,24 +82,46 @@ def print_hits(hits, alt_hits, hit_type, alt_hit_type, tot_goodreads, tot_badrea
                     pairprop = 1
                     altprop = 0
                 
-                print( "\t".join( map( str, (
-                                chrom,
-                                pos[0],
-                                pos[1],
-                                hit_type,
-                                alt_hit_type,
-                                count,
-                                "%.8g" % (altcount),
-                                "%.8g" % (pairprop),
-                                "%.8g" % (altprop),
-                                "%.8g" % (count / (tot_goodreads+tot_badreads)),
-                                "%.8g" % (count / (tot_goodreads)),
-                                "%.8g" % (count / (tot_chromreads)),
-                                winsize,
-                                winstep,
-                ))))
+                if name:
+                    print( "\t".join( map( str, (
+                                    chrom,
+                                    pos[0],
+                                    pos[1],
+                                    hit_type,
+                                    alt_hit_type,
+                                    count,
+                                    "%.8g" % (altcount),
+                                    "%.8g" % (pairprop),
+                                    "%.8g" % (altprop),
+                                    "%.8g" % (count / (tot_goodreads+tot_badreads)),
+                                    "%.8g" % (count / (tot_goodreads)),
+                                    "%.8g" % (count / (tot_chromreads)),
+                                    winsize,
+                                    winstep,
+                                    name,
+                    ))))
+                else:
+                    print( "\t".join( map( str, (
+                                    chrom,
+                                    pos[0],
+                                    pos[1],
+                                    hit_type,
+                                    alt_hit_type,
+                                    count,
+                                    "%.8g" % (altcount),
+                                    "%.8g" % (pairprop),
+                                    "%.8g" % (altprop),
+                                    "%.8g" % (count / (tot_goodreads+tot_badreads)),
+                                    "%.8g" % (count / (tot_goodreads)),
+                                    "%.8g" % (count / (tot_chromreads)),
+                                    winsize,
+                                    winstep,
+                    ))))
     else:
-        print("chrom\tstart\tend\thit_type\talt_hit_type\thits\talt_hits\tpair_prop\talt_prop\tpair_totprop\tpair_totgoodprop\tpair_totcloseprop\twinsize\twinstep\tpair_fpkm\talt_fpkm\tpair_prop_fpkm\talt_prop_fpkm\t")
+        if name:
+            print("chrom\tstart\tend\thit_type\talt_hit_type\thits\talt_hits\tpair_prop\talt_prop\tpair_totprop\tpair_totgoodprop\tpair_totcloseprop\twinsize\twinstep\tpair_fpkm\talt_fpkm\tpair_prop_fpkm\talt_prop_fpkm\tname")
+        else:
+            print("chrom\tstart\tend\thit_type\talt_hit_type\thits\talt_hits\tpair_prop\talt_prop\tpair_totprop\tpair_totgoodprop\tpair_totcloseprop\twinsize\twinstep\tpair_fpkm\talt_fpkm\tpair_prop_fpkm\talt_prop_fpkm")
         for chrom in sorted(hits):
             for pos in sorted(hits[chrom]):
                 #print(hits[chrom][pos])
@@ -120,26 +145,50 @@ def print_hits(hits, alt_hits, hit_type, alt_hit_type, tot_goodreads, tot_badrea
                     pairprop_fpkm = 1
                     altprop_fpkm = 0
                 
-                print( "\t".join( map( str, (
-                                chrom,
-                                pos[0],
-                                pos[1],
-                                hit_type,
-                                alt_hit_type,
-                                count,
-                                "%.8g" % (altcount),
-                                "%.8g" % (pairprop),
-                                "%.8g" % (altprop),
-                                "%.8g" % (count / (tot_goodreads+tot_badreads)),
-                                "%.8g" % (count / (tot_goodreads)),
-                                "%.8g" % (count / (tot_chromreads)),
-                                winsize,
-                                winstep,
-                                "%.8g" % (pair_fpkm_i),
-                                "%.8g" % (self_fpkm_i),
-                                "%.8g" % (pairprop_fpkm),
-                                "%.8g" % (altprop_fpkm),
-                ))))
+                if name:
+                    print( "\t".join( map( str, (
+                                    chrom,
+                                    pos[0],
+                                    pos[1],
+                                    hit_type,
+                                    alt_hit_type,
+                                    count,
+                                    "%.8g" % (altcount),
+                                    "%.8g" % (pairprop),
+                                    "%.8g" % (altprop),
+                                    "%.8g" % (count / (tot_goodreads+tot_badreads)),
+                                    "%.8g" % (count / (tot_goodreads)),
+                                    "%.8g" % (count / (tot_chromreads)),
+                                    winsize,
+                                    winstep,
+                                    "%.8g" % (pair_fpkm_i),
+                                    "%.8g" % (self_fpkm_i),
+                                    "%.8g" % (pairprop_fpkm),
+                                    "%.8g" % (altprop_fpkm),
+                                    name
+                    ))))
+                
+                else:
+                    print( "\t".join( map( str, (
+                                    chrom,
+                                    pos[0],
+                                    pos[1],
+                                    hit_type,
+                                    alt_hit_type,
+                                    count,
+                                    "%.8g" % (altcount),
+                                    "%.8g" % (pairprop),
+                                    "%.8g" % (altprop),
+                                    "%.8g" % (count / (tot_goodreads+tot_badreads)),
+                                    "%.8g" % (count / (tot_goodreads)),
+                                    "%.8g" % (count / (tot_chromreads)),
+                                    winsize,
+                                    winstep,
+                                    "%.8g" % (pair_fpkm_i),
+                                    "%.8g" % (self_fpkm_i),
+                                    "%.8g" % (pairprop_fpkm),
+                                    "%.8g" % (altprop_fpkm),
+                    ))))
 
 if __name__ == "__main__":
     
@@ -153,6 +202,7 @@ if __name__ == "__main__":
     parser.add_argument("-d", "--distance", help="Distance away that two reads can be before they are ignored (default = 5Mb)")
     parser.add_argument("-f", "--no_fpkm", help="Do not calculate fpkm along with counts (default = False)", action="store_true")
     parser.add_argument("-g", "--genome_length", help="Genome size for purpose of fpkm calculations (no default; required if calculating fpkm)")
+    parser.add_argument("-n", "--name", help="Add a name column with the specified name to the end of the table.")
 
     args = parser.parse_args()
 
@@ -163,6 +213,9 @@ if __name__ == "__main__":
     okdist = 5000000
     mummer_query = ""
     get_fpkm = True
+    name = False
+    if args.name:
+        name = args.name
     if args.standard_input or not args.input:
         inconns.append(sys.stdin)
     if args.input:
@@ -214,7 +267,7 @@ if __name__ == "__main__":
             self_fpkm = None
             pair_fpkm = None
 
-        print_hits(pair_hits, self_hits, "paired", "self", tot_goodreads, tot_badreads, tot_chromreads, winsize, winstep, get_fpkm, self_fpkm, pair_fpkm)
+        print_hits(pair_hits, self_hits, "paired", "self", tot_goodreads, tot_badreads, tot_chromreads, winsize, winstep, get_fpkm, self_fpkm, pair_fpkm, name)
     else:
         ### alternate version that does whole-genome counts:
         self_hits = {}
