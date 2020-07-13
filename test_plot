@@ -1,0 +1,18 @@
+#!/bin/bash
+set -e
+
+./install
+
+pairviz \
+    -g 260000000 <(gunzip -c testdata2.pairs.gz) | \
+pairviz_plot -L chrlens.bed -i -l -p -y "FPKM proportion pairing" -o test_out.pdf
+
+pairviz \
+    -g 260000000 <(gunzip -c testdata2.pairs.gz) -n "two" \
+> test_in2.bed
+
+pairviz \
+    -g 260000000 <(gunzip -c testdata3.pairs.gz) -n "three" \
+> test_in3.bed
+
+pairviz_plot test_in3.bed test_in2.bed -L chrlens.bed -n "name" -l -p -y "FPKM proportion pairing" -o test_out2.pdf
