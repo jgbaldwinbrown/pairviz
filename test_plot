@@ -8,6 +8,10 @@ pairviz \
 pairviz_plot -L chrlens.bed -i -l -p -y "FPKM proportion pairing" -o test_out.pdf
 
 pairviz \
+    -g 260000000 <(gunzip -c testdata2.pairs.gz) | \
+pairviz_plot -L chrlens.bed -i -l -p -y "FPKM proportion pairing" -N -o test_out3.pdf
+
+pairviz \
     -g 260000000 <(gunzip -c testdata2.pairs.gz) -n "two" \
 > test_in2.bed
 

@@ -41,6 +41,7 @@ def main():
     parser.add_argument("-n", "--name_col", help="Name of the column to use for differentiating different runs")
     parser.add_argument("-x", "--x_axis_name", help="X axis name.")
     parser.add_argument("-y", "--y_axis_name", help="Y axis name.")
+    parser.add_argument("-N", "--named_xticks", help="Use chromosome names for X axis ticks.", action = "store_true")
 
     args = parser.parse_args()
 
@@ -59,6 +60,7 @@ def main():
     use_fpkm = True
     xname = "Genome position (bp)"
     yname = "Hi-C contacts"
+    named_xticks = False
     if args.output:
         output = args.output
     if args.input:
@@ -82,6 +84,8 @@ def main():
         yname = args.y_axis_name
     if args.name_col:
         name_col = args.name_col
+    if args.named_xticks:
+        named_xticks = True
 
     # set proportion vs total hits
     if not use_fpkm:
@@ -126,7 +130,9 @@ def main():
         yname = yname,
         color_col = name_col,
         log = log,
-        scale = 1
+        scale = 1,
+        named_xticks = named_xticks,
+        chrom_col = "chrom"
     )
     
 if __name__ == "__main__":
