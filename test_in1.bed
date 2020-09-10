@@ -1,0 +1,1 @@
+chrom	start	end	hit_type	alt_hit_type	hits	alt_hits	pair_prop	alt_prop	pair_totprop	pair_totgoodprop	pair_totcloseprop	winsize	winstep	pair_fpkm	alt_fpkm	pair_prop_fpkm	alt_prop_fpkm	name
