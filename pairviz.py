@@ -210,7 +210,7 @@ if __name__ == "__main__":
     winsize = 100000
     winstep = 10000
     wholechrom = False
-    okdist = 5000000
+    okdist = 2e11
     mummer_query = ""
     get_fpkm = True
     name = False
