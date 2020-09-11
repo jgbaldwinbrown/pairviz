@@ -33,7 +33,7 @@ def main():
     parser.add_argument("-o", "--output", help="output path (default = out.pdf).")
     parser.add_argument("-t", "--title", help="Title of plot (default = \"Pairing Rate\").")
     parser.add_argument("-p", "--proportion", help="If included, plot as a proportion of total reads in the region, rather than absolute (default = False).", action="store_true")
-    parser.add_argument("-f", "--no_fpkm", help="If included, plot FPKM rather than read counts (default = False, can be combined with --proportion).", action="store_true")
+    parser.add_argument("-f", "--no_fpkm", help="If included, plot read counts rather than FPKM (default = False, can be combined with --proportion).", action="store_true")
     parser.add_argument("-s", "--self", help="Also plot self-interactions (default = False).", action="store_true")
     parser.add_argument("-c", "--chromspace", help="bp of space to put between chromosomes in plot (default = 5000000).")
     parser.add_argument("-l", "--log", help="Log-scale the y-axis (default = False).", action="store_true")
