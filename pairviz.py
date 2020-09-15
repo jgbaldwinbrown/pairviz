@@ -6,7 +6,7 @@ import argparse
 def add_hit(hits, c, s, p, winsize, winstep):
     if c not in hits:
         hits[c] = {}
-    base_window = (p // winsize) * winsize
+    base_window = (p // winstep) * winstep
     window_starts = range(base_window, base_window + winsize, winstep)
     windows = [(x, x + winsize) for x in window_starts]
     for w in windows:
