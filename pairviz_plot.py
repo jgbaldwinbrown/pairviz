@@ -42,6 +42,8 @@ def main():
     parser.add_argument("-x", "--x_axis_name", help="X axis name.")
     parser.add_argument("-y", "--y_axis_name", help="Y axis name.")
     parser.add_argument("-N", "--named_xticks", help="Use chromosome names for X axis ticks.", action = "store_true")
+    parser.add_argument("--my_y", help="arbitrary column name to plot (overrides proportion, fpkm, etc.)")
+    parser.add_argument("--alt_y", help="arbitrary column name to plot alt (overrides proportion, fpkm, etc.)")
 
     args = parser.parse_args()
 
@@ -102,6 +104,11 @@ def main():
         else:
             my_y = 'pair_fpkm'
             alt_y = 'alt_fpkm'
+    
+    if args.my_y:
+        my_y = args.my_y
+    if args.alt_y:
+        alt_y = args.alt_y
     
     # make the combined data frame
     alldatas = parse_all_data(inconns)
