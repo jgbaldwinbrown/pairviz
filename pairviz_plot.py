@@ -44,6 +44,8 @@ def main():
     parser.add_argument("-N", "--named_xticks", help="Use chromosome names for X axis ticks.", action = "store_true")
     parser.add_argument("--my_y", help="arbitrary column name to plot (overrides proportion, fpkm, etc.)")
     parser.add_argument("--alt_y", help="arbitrary column name to plot alt (overrides proportion, fpkm, etc.)")
+    parser.add_argument("-X", "--xdim", help="Size in inches of plot (X dimension, default = 20).")
+    parser.add_argument("-Y", "--ydim", help="Size in inches of plot (Y dimension, default = 10).")
 
     args = parser.parse_args()
 
@@ -63,6 +65,8 @@ def main():
     xname = "Genome position (bp)"
     yname = "Hi-C contacts"
     named_xticks = False
+    xdim = 20
+    ydim = 10
     if args.output:
         output = args.output
     if args.input:
@@ -88,6 +92,10 @@ def main():
         name_col = args.name_col
     if args.named_xticks:
         named_xticks = True
+    if args.xdim:
+        xdim = int(args.xdim)
+    if args.ydim:
+        ydim = int(args.ydim)
 
     # set proportion vs total hits
     if not use_fpkm:
@@ -139,7 +147,8 @@ def main():
         log = log,
         scale = 1,
         named_xticks = named_xticks,
-        chrom_col = "chrom"
+        chrom_col = "chrom",
+        dims = (xdim, ydim)
     )
     
 if __name__ == "__main__":

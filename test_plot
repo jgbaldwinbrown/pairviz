@@ -20,3 +20,4 @@ pairviz \
 > test_in3.bed
 
 pairviz_plot test_in3.bed test_in2.bed -L chrlens.bed -n "name" -l -p -y "FPKM proportion pairing" -o test_out2.pdf
+pairviz_plot test_in3.bed test_in2.bed -L chrlens.bed -n "name" -l -p -y "FPKM proportion pairing" -X 40 -Y 5 -o test_out4.pdf
