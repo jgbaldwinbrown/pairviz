@@ -47,6 +47,7 @@ def main():
     parser.add_argument("-X", "--xdim", help="Size in inches of plot (X dimension, default = 20).")
     parser.add_argument("-Y", "--ydim", help="Size in inches of plot (Y dimension, default = 10).")
     parser.add_argument("-g", "--geom", help="ggplot geom to use for plotting (default = \"point\".")
+    parser.add_argument("--ylim", help="Comma-separated Y axis limits (default = none).")
 
     args = parser.parse_args()
 
@@ -69,6 +70,7 @@ def main():
     xdim = 20
     ydim = 10
     geom = "point"
+    ylim = None
     if args.output:
         output = args.output
     if args.input:
@@ -100,6 +102,8 @@ def main():
         ydim = int(args.ydim)
     if args.geom:
         geom = args.geom
+    if args.ylim:
+        ylim = [float(x) for x in args.ylim.split(",")]
 
     # set proportion vs total hits
     if not use_fpkm:
@@ -153,7 +157,8 @@ def main():
         named_xticks = named_xticks,
         chrom_col = "chrom",
         dims = (xdim, ydim),
-        geom = geom
+        geom = geom,
+        ylim = ylim
     )
     
 if __name__ == "__main__":
