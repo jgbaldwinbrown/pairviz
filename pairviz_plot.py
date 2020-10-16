@@ -142,7 +142,7 @@ def main():
     else:
         mm_alldata = m_alldata[m_alldata.apply(lambda x: x['variable'] == my_y, axis=1)]
     mm_alldata['value'] = mm_alldata['value'].astype(float)
-    manhat_data, chroffsets = mh.manhatify(mm_alldata, chrlens, chrom_col = "chrom", bp_col = "start", val_col = "value", feature = name_col)
+    manhat_data, chroffsets = mh.manhatify(mm_alldata, chrlens, chrom_col = "chrom", bp_col = "start", val_col = "value", feature = name_col, log = False)
 
     mh.plot_manhat(manhat_data,
         output,
