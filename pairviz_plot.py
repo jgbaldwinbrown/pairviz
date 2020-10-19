@@ -42,6 +42,12 @@ def main():
     parser.add_argument("-x", "--x_axis_name", help="X axis name.")
     parser.add_argument("-y", "--y_axis_name", help="Y axis name.")
     parser.add_argument("-N", "--named_xticks", help="Use chromosome names for X axis ticks.", action = "store_true")
+    parser.add_argument("--my_y", help="arbitrary column name to plot (overrides proportion, fpkm, etc.)")
+    parser.add_argument("--alt_y", help="arbitrary column name to plot alt (overrides proportion, fpkm, etc.)")
+    parser.add_argument("-X", "--xdim", help="Size in inches of plot (X dimension, default = 20).")
+    parser.add_argument("-Y", "--ydim", help="Size in inches of plot (Y dimension, default = 10).")
+    parser.add_argument("-g", "--geom", help="ggplot geom to use for plotting (default = \"point\".")
+    parser.add_argument("--ylim", help="Comma-separated Y axis limits (default = none).")
 
     args = parser.parse_args()
 
@@ -61,6 +67,10 @@ def main():
     xname = "Genome position (bp)"
     yname = "Hi-C contacts"
     named_xticks = False
+    xdim = 20
+    ydim = 10
+    geom = "point"
+    ylim = None
     if args.output:
         output = args.output
     if args.input:
@@ -86,6 +96,14 @@ def main():
         name_col = args.name_col
     if args.named_xticks:
         named_xticks = True
+    if args.xdim:
+        xdim = int(args.xdim)
+    if args.ydim:
+        ydim = int(args.ydim)
+    if args.geom:
+        geom = args.geom
+    if args.ylim:
+        ylim = [float(x) for x in args.ylim.split(",")]
 
     # set proportion vs total hits
     if not use_fpkm:
@@ -103,6 +121,11 @@ def main():
             my_y = 'pair_fpkm'
             alt_y = 'alt_fpkm'
     
+    if args.my_y:
+        my_y = args.my_y
+    if args.alt_y:
+        alt_y = args.alt_y
+    
     # make the combined data frame
     alldatas = parse_all_data(inconns)
     
@@ -119,7 +142,7 @@ def main():
     else:
         mm_alldata = m_alldata[m_alldata.apply(lambda x: x['variable'] == my_y, axis=1)]
     mm_alldata['value'] = mm_alldata['value'].astype(float)
-    manhat_data, chroffsets = mh.manhatify(mm_alldata, chrlens, chrom_col = "chrom", bp_col = "start", val_col = "value", feature = name_col)
+    manhat_data, chroffsets = mh.manhatify(mm_alldata, chrlens, chrom_col = "chrom", bp_col = "start", val_col = "value", feature = name_col, log = False)
 
     mh.plot_manhat(manhat_data,
         output,
@@ -132,7 +155,10 @@ def main():
         log = log,
         scale = 1,
         named_xticks = named_xticks,
-        chrom_col = "chrom"
+        chrom_col = "chrom",
+        dims = (xdim, ydim),
+        geom = geom,
+        ylim = ylim
     )
     
 if __name__ == "__main__":
