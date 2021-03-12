@@ -1,0 +1,4 @@
+#!/bin/bash
+set -e
+
+./pairviz.py -g 260000000 <(gunzip -c testdata4.pairs.gz)
