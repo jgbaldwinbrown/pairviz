@@ -1,20 +1,56 @@
 #!/usr/bin/env python3
 
+import sys
 import plotnine as p9
 import statsmodels.api as sm
 import seaborn as sns
 import scipy.signal as sig
 import pandas as pd
+import fractions
 
-def loessify_data(data, frac):
-    data["lowess"] = sm.nonparametric.lowess(data["pair_prop_fpkm"]
+def coords2num(row, chr_ranks):
+    return chr_ranks[row["chrom"]] * 1e12 + int(row["start"])
+
+def loessify_data(data, frac, chr_ranks):
+    data["num_pos"] = data.apply(lambda row: coords2num(row, chr_ranks), axis=1)
+    data["lowess"] = sm.nonparametric.lowess(data["pair_prop_fpkm"],
+        data["num_pos"],
+        frac = frac,
+        return_sorted = False)
+
+def get_peaks(data):
+    peaks = sig.find_peaks(data["lowess"], prominence = 0.1)[0].tolist()
+    peak_vals = data.iloc[peaks]
+    return (peaks, peak_vals)
+
+def print_data(data, outpath):
+    data.to_csv(outpath, index=False, compression="gzip")
+
+def print_peaks(peaks, outpath):
+    with open(outpath, "w") as outconn:
+        for peak in peaks:
+            outconn.write(str(peak) + "\n")
+
+def print_peak_vals(peak_vals, outpath):
+    peak_vals.to_csv(outpath, index=False)
+
+def get_chr_ranks(rankpath):
+    chr_ranks = {}
+    with open(rankpath, "r") as inconn:
+        for l in inconn:
+            sl = l.rstrip('\n').split('\t')
+            chr_ranks[sl[0]] = int(sl[1])
+    return chr_ranks
 
 def main():
-    data = pd.read_csv(sys.argv[1], sep="\t", header=1)
-    frac = float(sys.argv[2])
-    loessify_data(data, frac)
-    peaks = get_peaks(data)
-    print_peaks(peaks, sys.argv[3])
+    data = pd.read_csv(sys.argv[1], sep="\t", header=0)
+    frac = fractions.Fraction(sys.argv[2])
+    chr_ranks = get_chr_ranks(sys.argv[3])
+    loessify_data(data, frac, chr_ranks)
+    print_data(data, sys.argv[4] + "_data.txt.gz")
+    peaks, peak_vals = get_peaks(data)
+    print_peaks(peaks, sys.argv[4] + "_peaks.txt")
+    print_peak_vals(peak_vals, sys.argv[4] + "_peak_vals.txt")
 
 if __name__ == "__main__":
     main()
