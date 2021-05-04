@@ -6,3 +6,4 @@ cp pair_coord.py ~/mybin/pair_coord
 cp pair_snps.py ~/mybin/pair_snps
 cp pairviz.py ~/mybin/pairviz
 cp pairviz_plot.py ~/mybin/pairviz_plot
+cp loess_pairs.py ~/mybin/loess_pairs
