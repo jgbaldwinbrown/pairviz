@@ -19,7 +19,7 @@ def loessify_data(data, frac, chr_ranks):
         return_sorted = False)
 
 def get_peaks(data):
-    peaks = sig.find_peaks(data["lowess"], prominence = 0.1)[0].tolist()
+    peaks = sig.find_peaks(data["lowess"], prominence = 0.02)[0].tolist()
     peak_vals = data.iloc[peaks]
     return (peaks, peak_vals)
 

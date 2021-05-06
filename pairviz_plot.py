@@ -48,6 +48,7 @@ def main():
     parser.add_argument("-Y", "--ydim", help="Size in inches of plot (Y dimension, default = 10).")
     parser.add_argument("-g", "--geom", help="ggplot geom to use for plotting (default = \"point\".")
     parser.add_argument("--ylim", help="Comma-separated Y axis limits (default = none).")
+    parser.add_argument("--vlines", help="File name for .bed file containing positions to place vertical lines (default = none).")
 
     args = parser.parse_args()
 
@@ -71,6 +72,7 @@ def main():
     ydim = 10
     geom = "point"
     ylim = None
+    vlines = None
     if args.output:
         output = args.output
     if args.input:
@@ -104,6 +106,8 @@ def main():
         geom = args.geom
     if args.ylim:
         ylim = [float(x) for x in args.ylim.split(",")]
+    if args.vlines:
+            vlines = mh.get_pos_only_from_bed(args.vlines)
 
     # set proportion vs total hits
     if not use_fpkm:
@@ -142,7 +146,7 @@ def main():
     else:
         mm_alldata = m_alldata[m_alldata.apply(lambda x: x['variable'] == my_y, axis=1)]
     mm_alldata['value'] = mm_alldata['value'].astype(float)
-    manhat_data, chroffsets = mh.manhatify(mm_alldata, chrlens, chrom_col = "chrom", bp_col = "start", val_col = "value", feature = name_col, log = False)
+    manhat_data, chroffsets, manhat_vlines = mh.manhatify(mm_alldata, chrlens, chrom_col = "chrom", bp_col = "start", val_col = "value", feature = name_col, log = False, extra_data = vlines)
 
     mh.plot_manhat(manhat_data,
         output,
@@ -158,7 +162,8 @@ def main():
         chrom_col = "chrom",
         dims = (xdim, ydim),
         geom = geom,
-        ylim = ylim
+        ylim = ylim,
+        vlines = manhat_vlines
     )
     
 if __name__ == "__main__":
