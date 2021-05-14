@@ -9,6 +9,7 @@ import (
     "log"
     "strconv"
     "strings"
+    "compress/gzip"
 )
 
 type flaglist struct {
@@ -16,6 +17,7 @@ type flaglist struct {
     step int64
     centers_path string
     centers []pos_entry
+    melt string
 }
 
 type pos_entry struct {
@@ -77,9 +79,15 @@ func get_flags() flaglist {
     flag.IntVar(&width_temp, "width", 1, "The width of intervals for calculating pairing at range.")
     flag.IntVar(&step_temp, "step", 1, "The step distance of intervals for calculating pairing at range.")
     flag.StringVar(&flags.centers_path, "center", "", "The central point around which to calculate pairing rates.")
+    flag.StringVar(&flags.melt, "melt", "", "The path for the melted output.")
     flag.Parse()
     if flags.centers_path == "" {
         fmt.Fprintln(os.Stderr, "A path to a set of centers is required.")
+        os.Exit(1)
+    }
+    if flags.melt == "" {
+        fmt.Fprintln(os.Stderr, "A path to write melted output is required.")
+        os.Exit(1)
     }
     flags.centers = get_centers(flags.centers_path)
     flags.width = int64(width_temp);
@@ -182,17 +190,29 @@ func add_pair_to_radius_table(pair_data pair_entry, table *radius_table, flags f
     }
 }
 
-func write_radius_table(table radius_table, outconn io.Writer) {
+func write_radius_table(table radius_table, outconn io.Writer, meltconn io.Writer) {
     for i, e := range table.entries {
         if e.full {
             fmt.Fprintf(outconn, "%v\t%v\t%v\t%v\t%v\n", int64(i) * table.step, e.pair_count, e.self_count, 0, float64(e.pair_count) / float64(e.self_count + e.pair_count))
+            fmt.Fprintf(meltconn, "%v\tpair_count\t%v\n%v\tself_count\t%v\n%v\tuninf_count\t%v\n%v\tpair_prop\t%v\n",
+                int64(i)*table.step, e.pair_count,
+                int64(i)*table.step, e.self_count,
+                int64(i)*table.step, 0,
+                int64(i)*table.step, float64(e.pair_count) / float64(e.self_count+e.pair_count),
+            )
         } else {
             fmt.Fprintf(outconn, "%v\t%v\t%v\t%v\t%v\n", int64(i) * table.step, 0, 0, 0, 0.0)
+            fmt.Fprintf(meltconn, "%v\tpair_count\t%v\n%v\tself_count\t%v\n%v\tuninf_count\t%v\n%v\tpair_prop\t%v\n",
+                int64(i)*table.step, 0,
+                int64(i)*table.step, 0,
+                int64(i)*table.step, 0,
+                int64(i)*table.step, 0,
+            )
         }
     }
 }
 
-func pairing_radius(flags flaglist, inconn io.Reader, outconn io.Writer) {
+func pairing_radius(flags flaglist, inconn io.Reader, outconn io.Writer, meltconn io.Writer) {
     scanner := bufio.NewScanner(inconn)
     scanner.Buffer(make([]byte, 0), 8e9)
     output := make_radius_table(flags.width, flags.step)
@@ -202,10 +222,17 @@ func pairing_radius(flags flaglist, inconn io.Reader, outconn io.Writer) {
             add_pair_to_radius_table(pair_data, &output, flags)
         }
     }
-    write_radius_table(output, outconn)
+    write_radius_table(output, outconn, meltconn)
 }
 
 func main() {
     flags := get_flags()
-    pairing_radius(flags, os.Stdin, os.Stdout)
+    meltconn, err := os.Create(flags.melt)
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer meltconn.Close()
+    gzmeltconn := gzip.NewWriter(meltconn)
+    pairing_radius(flags, os.Stdin, os.Stdout, gzmeltconn)
+    gzmeltconn.Close()
 }
