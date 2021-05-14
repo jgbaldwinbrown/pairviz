@@ -17,10 +17,18 @@ def loessify_data(data, frac, chr_ranks):
         data["num_pos"],
         frac = frac,
         return_sorted = False)
+    data["negative_lowess"] = -data["lowess"]
 
-def get_peaks(data):
-    peaks = sig.find_peaks(data["lowess"], prominence = 0.02)[0].tolist()
-    peak_vals = data.iloc[peaks]
+def get_peaks(data, sign):
+    prom = 0.02
+    if sign == "-":
+        peaks = sig.find_peaks(data["negative_lowess"], prominence = prom)[0].tolist()
+        peak_vals = data.iloc[peaks]
+        peak_vals = peak_vals.assign(direction = "valley")
+    else:
+        peaks = sig.find_peaks(data["lowess"], prominence = prom)[0].tolist()
+        peak_vals = data.iloc[peaks]
+        peak_vals = peak_vals.assign(direction = "peak")
     return (peaks, peak_vals)
 
 def print_data(data, outpath):
@@ -42,14 +50,20 @@ def get_chr_ranks(rankpath):
             chr_ranks[sl[0]] = int(sl[1])
     return chr_ranks
 
+def combine_peak_vals(peak_vals, neg_peak_vals):
+    return peak_vals.append(neg_peak_vals, ignore_index=True)
+
 def main():
     data = pd.read_csv(sys.argv[1], sep="\t", header=0)
     frac = fractions.Fraction(sys.argv[2])
     chr_ranks = get_chr_ranks(sys.argv[3])
     loessify_data(data, frac, chr_ranks)
     print_data(data, sys.argv[4] + "_data.txt.gz")
-    peaks, peak_vals = get_peaks(data)
+    peaks, peak_vals = get_peaks(data, "+")
+    neg_peaks, neg_peak_vals = get_peaks(data, "-")
+    peak_vals = combine_peak_vals(peak_vals, neg_peak_vals)
     print_peaks(peaks, sys.argv[4] + "_peaks.txt")
+    print_peaks(neg_peaks, sys.argv[4] + "_neg_peaks.txt")
     print_peak_vals(peak_vals, sys.argv[4] + "_peak_vals.txt")
 
 if __name__ == "__main__":

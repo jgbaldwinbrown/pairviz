@@ -49,6 +49,7 @@ def main():
     parser.add_argument("-g", "--geom", help="ggplot geom to use for plotting (default = \"point\".")
     parser.add_argument("--ylim", help="Comma-separated Y axis limits (default = none).")
     parser.add_argument("--vlines", help="File name for .bed file containing positions to place vertical lines (default = none).")
+    parser.add_argument("--vcolor", help = "Color vertical lines based on the factor values in column 4 of vlines bed file (default = False)", action = "store_true")
 
     args = parser.parse_args()
 
@@ -73,6 +74,7 @@ def main():
     geom = "point"
     ylim = None
     vlines = None
+    vcolor = False
     if args.output:
         output = args.output
     if args.input:
@@ -107,7 +109,9 @@ def main():
     if args.ylim:
         ylim = [float(x) for x in args.ylim.split(",")]
     if args.vlines:
-            vlines = mh.get_pos_only_from_bed(args.vlines)
+            vlines = mh.get_data_from_bed(args.vlines)
+    if args.vcolor:
+        vcolor = args.vcolor
 
     # set proportion vs total hits
     if not use_fpkm:
