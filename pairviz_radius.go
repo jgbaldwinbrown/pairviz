@@ -32,7 +32,7 @@ type radius_table struct {
 type radius_entry struct {
     pair_count int64
     self_count int64
-    uninform_count int64
+    full bool
 }
 
 type pair_entry struct {
@@ -74,8 +74,8 @@ func get_flags() flaglist {
     var flags flaglist;
     var width_temp int;
     var step_temp int;
-    flag.IntVar(&width_temp, "width", 1000, "The width of intervals for calculating pairing at range.")
-    flag.IntVar(&step_temp, "step", 100, "The step distance of intervals for calculating pairing at range.")
+    flag.IntVar(&width_temp, "width", 1, "The width of intervals for calculating pairing at range.")
+    flag.IntVar(&step_temp, "step", 1, "The step distance of intervals for calculating pairing at range.")
     flag.StringVar(&flags.centers_path, "center", "", "The central point around which to calculate pairing rates.")
     flag.Parse()
     if flags.centers_path == "" {
@@ -134,15 +134,25 @@ func parse_pairfile_line(line string) pair_entry {
     sc1_split := strings.Split(sl[1], "_")
     sc2_split := strings.Split(sl[3], "_")
     p.name = sl[0]
-    p.species1 = sc1_split[0]
-    p.chr1 = sc1_split[1]
+    if len(sc1_split) >= 2 {
+        p.species1 = sc1_split[1]
+        p.chr1 = sc1_split[0]
+    } else {
+        p.species1 = "!"
+        p.chr1 = "!"
+    }
     pos1, err = strconv.Atoi(sl[2])
     p.pos1 = int64(pos1)
     if err != nil {
         p.pos1 = -1
     }
-    p.species2 = sc2_split[0]
-    p.chr2 = sc2_split[1]
+    if len(sc1_split) >= 2 {
+        p.species2 = sc2_split[1]
+        p.chr2 = sc2_split[0]
+    } else {
+        p.species1 = "!"
+        p.chr1 = "!"
+    }
     pos2, err = strconv.Atoi(sl[4])
     p.pos2 = int64(pos2)
     if err != nil {
@@ -155,8 +165,31 @@ func parse_pairfile_line(line string) pair_entry {
     return p
 }
 
+func add_pair_to_radius_table(pair_data pair_entry, table *radius_table, flags flaglist) {
+    pos := pos_entry{chr: pair_data.chr1, pos: pair_data.pos1}
+    closest_center := find_closest(pos, flags.centers)
+    if closest_center.pos >= 0 && closest_center.chr == pair_data.chr1 {
+        distance := dist(pair_data.pos1, closest_center.pos)
+        for distance >= int64(len(table.entries)) {
+            table.entries = append(table.entries, radius_entry{0,0,false})
+        }
+        table.entries[distance].full = true
+        if pair_data.hybrid {
+            table.entries[distance].pair_count++
+        } else {
+            table.entries[distance].self_count++
+        }
+    }
+}
+
 func write_radius_table(table radius_table, outconn io.Writer) {
-    
+    for i, e := range table.entries {
+        if e.full {
+            fmt.Fprintf(outconn, "%v\t%v\t%v\t%v\t%v\n", int64(i) * table.step, e.pair_count, e.self_count, 0, float64(e.pair_count) / float64(e.self_count + e.pair_count))
+        } else {
+            fmt.Fprintf(outconn, "%v\t%v\t%v\t%v\t%v\n", int64(i) * table.step, 0, 0, 0, 0.0)
+        }
+    }
 }
 
 func pairing_radius(flags flaglist, inconn io.Reader, outconn io.Writer) {
@@ -166,7 +199,7 @@ func pairing_radius(flags flaglist, inconn io.Reader, outconn io.Writer) {
     for scanner.Scan() {
         if len(scanner.Text()) > 0 && scanner.Text()[0] != '#' {
             pair_data := parse_pairfile_line(scanner.Text())
-            add_pair_to_radius_table(pair_data, output)
+            add_pair_to_radius_table(pair_data, &output, flags)
         }
     }
     write_radius_table(output, outconn)
