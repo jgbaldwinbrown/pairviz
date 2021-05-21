@@ -9,3 +9,4 @@ cp pairviz_plot.py ~/mybin/pairviz_plot
 cp loess_pairs.py ~/mybin/loess_pairs
 go build pairviz_radius.go
 cp pairviz_radius ~/mybin/pairviz_radius
+cp pairviz_radius_plot.R ~/mybin/pairviz_radius_plot
