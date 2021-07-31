@@ -74,11 +74,12 @@ func pair_stats(path string, r io.Reader) pairfile_stats {
 	for bscanner.Scan() {
 		if len(bscanner.Text()) >= 9 && bscanner.Text()[:9] == "#columns:" { break }
 	}
-	scanner := fasttsv.NewScanner(r)
-	for scanner.Scan() {
-		fmt.Println(scanner.Line())
-		if len(scanner.Line()) >= 8 {
-			code := scanner.Line()[7]
+	var line []string
+	for bscanner.Scan() {
+		line = fasttsv.ManualSplit(bscanner.Text(), '\t', line)
+		fmt.Println(line)
+		if len(line) >= 8 {
+			code := line[7]
 			switch code {
 			case "MM":
 				out.mm_count++
