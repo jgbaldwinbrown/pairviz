@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"flag"
+	"compress/gzip"
 )
 type pairfile_stats struct {
 	path string
@@ -77,7 +78,6 @@ func pair_stats(path string, r io.Reader) pairfile_stats {
 	var line []string
 	for bscanner.Scan() {
 		line = fasttsv.ManualSplit(bscanner.Text(), '\t', line)
-		fmt.Println(line)
 		if len(line) >= 8 {
 			code := line[7]
 			switch code {
@@ -138,7 +138,14 @@ func all_pair_stats(path_list_path string) []pairfile_stats {
 	for s.Scan() {
 		conn, err := os.Open(s.Text())
 		if err != nil {panic(err)}
-		stats := pair_stats(s.Text(), conn)
+		var stats pairfile_stats
+		if len(s.Text()) > 3 && (s.Text()[len(s.Text())-3:len(s.Text())] == ".gz") {
+			gconn, err := gzip.NewReader(conn)
+			if err != nil {panic(err)}
+			stats = pair_stats(s.Text(), gconn)
+		} else {
+			stats = pair_stats(s.Text(), conn)
+		}
 		out = append(out, stats)
 		conn.Close()
 	}
