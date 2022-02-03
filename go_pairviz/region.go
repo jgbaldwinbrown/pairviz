@@ -98,6 +98,7 @@ func GetRegionStats(flags Flags, r io.Reader) (stats RegionStats, err error) {
 		}
 	}
 	if !flags.NoFpkm {
+		stats.Fpkm = true
 		for i, _ := range stats.Regions {
 			FpkmRegion(&stats.Regions[i], stats.TotalHits)
 		}

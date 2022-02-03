@@ -12,7 +12,6 @@ type Flags struct {
 	WinStep int64
 	Distance int64
 	Chromosome bool
-	GenomeLength int64
 	Name string
 	NameCol bool
 	Stdin bool
@@ -41,12 +40,11 @@ func Fpkm(count int64, total_sample_reads int64, window_length int64) float64 {
 
 func GetFlags() (f Flags) {
 	err := fmt.Errorf("missing argument")
-	var wintemp, steptemp, disttemp, genlentemp int
+	var wintemp, steptemp, disttemp int
 	flag.StringVar(&f.Name, "n", "", "Name to add to end of table.")
 	flag.IntVar(&wintemp, "w", -1, "Window size.")
 	flag.IntVar(&steptemp, "s", -1, "Window step distance.")
 	flag.IntVar(&disttemp, "d", -1, "Distance between two paired reads before they are ignored.")
-	flag.IntVar(&genlentemp, "g", -1, "Genome length (required if using FPKM).")
 	flag.BoolVar(&f.Stdin, "i", false, "Use Stdin as input (ignored; always do this anyway).")
 	flag.BoolVar(&f.Chromosome, "c", false, "Calculate whole-chromosome statistics, not sliding windows.")
 	flag.BoolVar(&f.NoFpkm, "f", false, "Do not compute fpkm statistics.")
@@ -56,13 +54,9 @@ func GetFlags() (f Flags) {
 	f.WinSize = int64(wintemp)
 	f.WinStep = int64(steptemp)
 	f.Distance = int64(disttemp)
-	f.GenomeLength = int64(genlentemp)
 	f.NameCol = f.Name != ""
 
 	if (f.WinSize == -1 || f.WinStep == -1) && !f.Chromosome && f.Region == "" {
-		panic(err)
-	}
-	if f.GenomeLength == -1 && !f.NoFpkm {
 		panic(err)
 	}
 	return
