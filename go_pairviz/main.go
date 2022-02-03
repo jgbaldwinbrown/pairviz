@@ -12,7 +12,7 @@ func main() {
 		regions, err := GetRegionStats(flags, os.Stdin)
 		if err != nil {panic(err)}
 		PrintRegionStats(regions)
-	} //else {
-		// PrintWinStats(WinStats(flags, os.Stdin))
-	// }
+	} else {
+		PrintWinStats(WinStats(flags, os.Stdin))
+	}
 }

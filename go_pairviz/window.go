@@ -12,7 +12,9 @@ type AllWinStats struct {
 	TotalPairHits int64
 	TotalBadReads int64
 	TotalGoodReads int64
-	TotalchromosomeReads int64
+	TotalReads int64
+	Fpkm bool
+	Name string
 }
 
 type WinHitList []int64
@@ -64,25 +66,73 @@ func (h *Hits) AddHit(chrom string, pos int64) {
 	}
 }
 
-// func WindowedStats(flags Flags, r io.Reader) {
-// 	s := fasttsv.NewScanner(r)
-// 	for s.Scan() {
-// 		
-// 	}
-		/*
+func WinStats(flags Flags, r io.Reader) (stats AllWinStats) {
+	s := fasttsv.NewScanner(r)
+	for s.Scan() {
+		if IsAPair(s.Line()) {
+			stats.TotalReads++
+		}
+		if CheckGood(s.Line()) {
+			stats.TotalGoodReads++
+		}
+
 		pair, ok := ParsePair(s.Line())
 		if !ok {
 			continue
 		}
-		if f.Distance != -1 && Abs(pair.Read1.Pos - pair.Read2.Pos) > f.Distance {
-			stats.TotalGoodReads++
-			stats.SelfHits[pair.Read1.Chrom]++
+		if RangeBad(f.Distance, pair) {
 			continue
 		}
-		if pair.Read1.Chrom != pair.Read2.Chrom || pair.Read1.Parent == pair.Read2.Parent {
-			stats.TotalGoodReads++
-			stats.SelfHits[pair.Read1.Chrom]++
-			continue
+
+		if pair.Read1.Chrom == pair.Read2.Chrom {
+			stats.SelfHits.AddHit(pair.Read1.Chrom, pair.Read1.Pos)
+		} else {
+			stats.PairHits.AddHit(pair.Read1.Chrom, pair.Read1.Pos)
 		}
-		*/
-//}
+	}
+	stats.TotalBadReads = stats.TotalReads - stats.TotalGoodReads
+
+	if !flags.NoFpkm {
+	}
+}
+
+func PrintWinStats(stats AllWinStats) {
+	format_string := "%s\t%d\t%d\t%s\t%s\t%d\t%d\t%.8g\t%.8g\t%.8g\t%.8g\t%.8g\t%d\t%d"
+	fpkm_format_string := "\t%.8g\t%.8g\t%.8g\t%.8g"
+	name_format_string := "\t%s"
+	for _, region := range stats.Regions {
+		fmt.Printf(
+			format_string,
+			region.Chrom,
+			region.Start,
+			region.End,
+			"paired",
+			"self",
+			region.PairHits,
+			region.SelfHits,
+			float64(region.PairHits) / (float64(region.PairHits) + float64(region.SelfHits)),
+			float64(region.SelfHits) / (float64(region.PairHits) + float64(region.SelfHits)),
+			float64(region.PairHits) / (float64(stats.TotalGoodHits) + float64(stats.TotalBadHits)),
+			float64(region.PairHits) / float64(stats.TotalGoodHits),
+			float64(region.PairHits) / float64(stats.TotalHits),
+			region.End - region.Start,
+			region.End - region.Start,
+		)
+		if stats.Fpkm {
+			fmt.Printf(
+				fpkm_format_string,
+				region.PairFpkm,
+				region.SelfFpkm,
+				region.PairFpkm / (region.SelfFpkm + region.PairFpkm),
+				region.SelfFpkm / (region.SelfFpkm + region.PairFpkm),
+			)
+		}
+		if stats.Name != "" {
+			fmt.Printf(
+				name_format_string,
+				stats.Name,
+			)
+		}
+		fmt.Println("")
+	}
+}
