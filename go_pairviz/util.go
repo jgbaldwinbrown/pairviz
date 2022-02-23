@@ -1,6 +1,7 @@
 package main
 
 import (
+	"io"
 	"flag"
 	"fmt"
 	"strings"
@@ -112,4 +113,8 @@ func CheckGood(line []string) bool {
 
 func RangeBad(maxdist int64, pair Pair) bool {
 	return (maxdist != -1 && Abs(pair.Read1.Pos - pair.Read2.Pos) > maxdist) || (pair.Read1.Chrom != pair.Read2.Chrom)
+}
+
+func FprintHeader(w io.Writer) {
+	fmt.Fprintln(w, "chrom\tstart\tend\thit_type\talt_hit_type\thits\talt_hits\tpair_prop\talt_prop\tpair_totprop\tpair_totgoodprop\tpair_totcloseprop\twinsize\twinstep\tpair_fpkm\talt_fpkm\tpair_prop_fpkm\talt_prop_fpkm")
 }

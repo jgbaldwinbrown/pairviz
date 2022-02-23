@@ -1,13 +1,13 @@
 package main
 
 import (
+	"fmt"
+	"io"
+	"github.com/jgbaldwinbrown/fasttsv"
 )
 
 type AllWinStats struct {
-	SelfHits Hits
-	PairHits Hits
-	SelfFpkm Fpkms
-	PairFpkms Fpkms
+	Hits Hits
 	TotalSelfHits int64
 	TotalPairHits int64
 	TotalBadReads int64
@@ -17,14 +17,31 @@ type AllWinStats struct {
 	Name string
 }
 
-type WinHitList []int64
-type WinFpkmList []float64
+type HitSet struct {
+	SelfHits int64
+	PairHits int64
+	SelfFpkm float64
+	PairFpkm float64
+}
 
-func (h WinHitList) IncWin(index int64) WinHitList {
+type HitType int
+
+const (
+	S HitType = iota
+	P
+)
+
+type WinHitList []HitSet
+
+func (h WinHitList) IncWin(index int64, hit_type HitType) WinHitList {
 	for len(h) <= int(index) {
-		h = append(h, 0)
+		h = append(h, HitSet{})
 	}
-	h[index]++
+	if hit_type == S {
+		h[index].SelfHits++
+	} else {
+		h[index].PairHits++
+	}
 	return h
 }
 
@@ -34,16 +51,16 @@ type Hits struct {
 	WinStep int64
 }
 
-type Fpkms struct {
-	Fpkms map[string]*WinFpkmList
-	WinSize int64
-	WinStep int64
-}
-
 type Range struct {
 	Start int64
 	End int64
 	Step int64
+}
+
+func (h *Hits) Init(winsize int64, winstep int64) {
+	h.Hits = make(map[string]*WinHitList)
+	h.WinSize = winsize
+	h.WinStep = winstep
 }
 
 func (h *Hits) WinsHit(pos int64) (out Range) {
@@ -55,18 +72,19 @@ func (h *Hits) WinsHit(pos int64) (out Range) {
 	return
 }
 
-func (h *Hits) AddHit(chrom string, pos int64) {
+func (h *Hits) AddHit(chrom string, pos int64, hit_type HitType) {
 	_, chromhas := h.Hits[chrom]
 	if !chromhas {
 		h.Hits[chrom] = new(WinHitList)
 	}
 	hitwins := h.WinsHit(pos)
 	for i:=hitwins.Start; i<hitwins.End; i+=hitwins.Step {
-		*h.Hits[chrom] = (*h.Hits[chrom]).IncWin(1)
+		*h.Hits[chrom] = (*h.Hits[chrom]).IncWin(1, hit_type)
 	}
 }
 
 func WinStats(flags Flags, r io.Reader) (stats AllWinStats) {
+	stats.Hits.Init(flags.WinSize, flags.WinStep)
 	s := fasttsv.NewScanner(r)
 	for s.Scan() {
 		if IsAPair(s.Line()) {
@@ -80,59 +98,70 @@ func WinStats(flags Flags, r io.Reader) (stats AllWinStats) {
 		if !ok {
 			continue
 		}
-		if RangeBad(f.Distance, pair) {
+		if RangeBad(flags.Distance, pair) {
 			continue
 		}
 
 		if pair.Read1.Chrom == pair.Read2.Chrom {
-			stats.SelfHits.AddHit(pair.Read1.Chrom, pair.Read1.Pos)
+			stats.Hits.AddHit(pair.Read1.Chrom, pair.Read1.Pos, S)
 		} else {
-			stats.PairHits.AddHit(pair.Read1.Chrom, pair.Read1.Pos)
+			stats.Hits.AddHit(pair.Read1.Chrom, pair.Read1.Pos, P)
 		}
 	}
 	stats.TotalBadReads = stats.TotalReads - stats.TotalGoodReads
 
 	if !flags.NoFpkm {
+		stats.Fpkm = true
+		for chrom, chromentries := range stats.Hits.Hits {
+			for index, win := range *chromentries {
+				(*stats.Hits.Hits[chrom])[index].SelfFpkm = Fpkm(win.SelfHits, stats.TotalReads, stats.Hits.WinSize)
+				(*stats.Hits.Hits[chrom])[index].PairFpkm = Fpkm(win.PairHits, stats.TotalReads, stats.Hits.WinSize)
+			}
+		}
 	}
+	return
 }
 
-func PrintWinStats(stats AllWinStats) {
+func FprintWinStats(w io.Writer, stats AllWinStats) {
+	FprintHeader(w)
 	format_string := "%s\t%d\t%d\t%s\t%s\t%d\t%d\t%.8g\t%.8g\t%.8g\t%.8g\t%.8g\t%d\t%d"
 	fpkm_format_string := "\t%.8g\t%.8g\t%.8g\t%.8g"
 	name_format_string := "\t%s"
-	for _, region := range stats.Regions {
-		fmt.Printf(
-			format_string,
-			region.Chrom,
-			region.Start,
-			region.End,
-			"paired",
-			"self",
-			region.PairHits,
-			region.SelfHits,
-			float64(region.PairHits) / (float64(region.PairHits) + float64(region.SelfHits)),
-			float64(region.SelfHits) / (float64(region.PairHits) + float64(region.SelfHits)),
-			float64(region.PairHits) / (float64(stats.TotalGoodHits) + float64(stats.TotalBadHits)),
-			float64(region.PairHits) / float64(stats.TotalGoodHits),
-			float64(region.PairHits) / float64(stats.TotalHits),
-			region.End - region.Start,
-			region.End - region.Start,
-		)
-		if stats.Fpkm {
-			fmt.Printf(
-				fpkm_format_string,
-				region.PairFpkm,
-				region.SelfFpkm,
-				region.PairFpkm / (region.SelfFpkm + region.PairFpkm),
-				region.SelfFpkm / (region.SelfFpkm + region.PairFpkm),
+	for chrom, chromentries := range stats.Hits.Hits {
+		for index, win := range *chromentries {
+			fmt.Fprintf(w,
+				format_string,
+				chrom,
+				int64(index) * stats.Hits.WinStep,
+				(int64(index) * stats.Hits.WinStep) + stats.Hits.WinSize,
+				"paired",
+				"self",
+				win.PairHits,
+				win.SelfHits,
+				float64(win.PairHits) / (float64(win.PairHits) + float64(win.SelfHits)),
+				float64(win.SelfHits) / (float64(win.PairHits) + float64(win.SelfHits)),
+				float64(win.PairHits) / (float64(stats.TotalGoodReads) + float64(stats.TotalBadReads)),
+				float64(win.PairHits) / float64(stats.TotalGoodReads),
+				float64(win.PairHits) / float64(stats.TotalReads),
+				stats.Hits.WinSize,
+				stats.Hits.WinStep,
 			)
+			if stats.Fpkm {
+				fmt.Fprintf(w,
+					fpkm_format_string,
+					win.PairFpkm,
+					win.SelfFpkm,
+					win.PairFpkm / (win.SelfFpkm + win.PairFpkm),
+					win.SelfFpkm / (win.SelfFpkm + win.PairFpkm),
+				)
+			}
+			if stats.Name != "" {
+				fmt.Fprintf(w,
+					name_format_string,
+					stats.Name,
+				)
+			}
+			fmt.Fprintln(w, "")
 		}
-		if stats.Name != "" {
-			fmt.Printf(
-				name_format_string,
-				stats.Name,
-			)
-		}
-		fmt.Println("")
 	}
 }

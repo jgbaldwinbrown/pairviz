@@ -107,12 +107,13 @@ func GetRegionStats(flags Flags, r io.Reader) (stats RegionStats, err error) {
 	return
 }
 
-func PrintRegionStats(stats RegionStats) {
+func FprintRegionStats(w io.Writer, stats RegionStats) {
+	FprintHeader(w)
 	format_string := "%s\t%d\t%d\t%s\t%s\t%d\t%d\t%.8g\t%.8g\t%.8g\t%.8g\t%.8g\t%d\t%d"
 	fpkm_format_string := "\t%.8g\t%.8g\t%.8g\t%.8g"
 	name_format_string := "\t%s"
 	for _, region := range stats.Regions {
-		fmt.Printf(
+		fmt.Fprintf(w,
 			format_string,
 			region.Chrom,
 			region.Start,
@@ -130,7 +131,7 @@ func PrintRegionStats(stats RegionStats) {
 			region.End - region.Start,
 		)
 		if stats.Fpkm {
-			fmt.Printf(
+			fmt.Fprintf(w,
 				fpkm_format_string,
 				region.PairFpkm,
 				region.SelfFpkm,
@@ -139,11 +140,11 @@ func PrintRegionStats(stats RegionStats) {
 			)
 		}
 		if stats.Name != "" {
-			fmt.Printf(
+			fmt.Fprintf(w,
 				name_format_string,
 				stats.Name,
 			)
 		}
-		fmt.Println("")
+		fmt.Fprintln(w, "")
 	}
 }

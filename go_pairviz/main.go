@@ -2,17 +2,21 @@ package main
 
 import (
 	"os"
+	"bufio"
 )
 
 func main() {
+	w := bufio.NewWriter(os.Stdout)
+	defer w.Flush()
+
 	flags := GetFlags()
 	if flags.Chromosome {
-		PrintChromStats(ChromosomeStats(flags, os.Stdin))
+		FprintChromStats(w, ChromosomeStats(flags, os.Stdin))
 	} else if flags.Region != "" {
 		regions, err := GetRegionStats(flags, os.Stdin)
 		if err != nil {panic(err)}
-		PrintRegionStats(regions)
+		FprintRegionStats(w, regions)
 	} else {
-		PrintWinStats(WinStats(flags, os.Stdin))
+		FprintWinStats(w, WinStats(flags, os.Stdin))
 	}
 }

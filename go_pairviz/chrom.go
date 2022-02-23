@@ -51,21 +51,21 @@ func ChromosomeStats(f Flags, r io.Reader) (stats ChromStats) {
 	return
 }
 
-func PrintChromStats(stats ChromStats) {
+func FprintChromStats(w io.Writer, stats ChromStats) {
 	for k, v := range stats.SelfHits {
-		fmt.Printf("Self\t%s\t%d\n", k, v)
+		fmt.Fprintf(w, "Self\t%s\t%d\n", k, v)
 	}
 	for k, v := range stats.PairHits {
-		fmt.Printf("Pair\t%s\t%d\n", k, v)
+		fmt.Fprintf(w, "Pair\t%s\t%d\n", k, v)
 	}
 	for k, v := range stats.PairHits {
-		fmt.Printf("Pair propotion:\t%s\t%d\n", k, (v / (v + stats.SelfHits[k])))
+		fmt.Fprintf(w, "Pair propotion:\t%s\t%d\n", k, (v / (v + stats.SelfHits[k])))
 	}
 	for k, v := range stats.PairHits {
-		fmt.Printf("Pair propotion of total good reads:\t%s\t%d\n", k, (v / stats.TotalGoodReads))
+		fmt.Fprintf(w, "Pair propotion of total good reads:\t%s\t%d\n", k, (v / stats.TotalGoodReads))
 	}
 	for k, v := range stats.PairHits {
-		fmt.Printf("Pair propotion of total reads:\t%s\t%d\n", k, (v / (stats.TotalGoodReads + stats.TotalBadReads)))
+		fmt.Fprintf(w, "Pair propotion of total reads:\t%s\t%d\n", k, (v / (stats.TotalGoodReads + stats.TotalBadReads)))
 	}
 }
 
