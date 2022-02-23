@@ -34,6 +34,7 @@ const (
 type WinHitList []HitSet
 
 func (h WinHitList) IncWin(index int64, hit_type HitType) WinHitList {
+	if index < 0 { return h }
 	for len(h) <= int(index) {
 		h = append(h, HitSet{})
 	}
@@ -64,9 +65,9 @@ func (h *Hits) Init(winsize int64, winstep int64) {
 }
 
 func (h *Hits) WinsHit(pos int64) (out Range) {
-	hiwin := pos / h.WinSize
+	hiwin := pos / h.WinStep
 	out = Range{Start: hiwin, End: hiwin+1, Step: 1}
-	for i:=hiwin; i * h.WinStep + h.WinSize > pos; i-- {
+	for i:=hiwin; ((i * h.WinStep) + h.WinSize) > pos; i-- {
 		out.Start = i
 	}
 	return
@@ -79,7 +80,7 @@ func (h *Hits) AddHit(chrom string, pos int64, hit_type HitType) {
 	}
 	hitwins := h.WinsHit(pos)
 	for i:=hitwins.Start; i<hitwins.End; i+=hitwins.Step {
-		*h.Hits[chrom] = (*h.Hits[chrom]).IncWin(1, hit_type)
+		*h.Hits[chrom] = (*h.Hits[chrom]).IncWin(i, hit_type)
 	}
 }
 
@@ -102,11 +103,16 @@ func WinStats(flags Flags, r io.Reader) (stats AllWinStats) {
 			continue
 		}
 
-		if pair.Read1.Chrom == pair.Read2.Chrom {
+		// fmt.Println(pair)
+		if pair.Read1.Parent == pair.Read2.Parent {
 			stats.Hits.AddHit(pair.Read1.Chrom, pair.Read1.Pos, S)
 		} else {
 			stats.Hits.AddHit(pair.Read1.Chrom, pair.Read1.Pos, P)
 		}
+		// fmt.Println(stats)
+		// for key, val := range stats.Hits.Hits {
+		// 	fmt.Println(key, *val)
+		// }
 	}
 	stats.TotalBadReads = stats.TotalReads - stats.TotalGoodReads
 
