@@ -1,0 +1,18 @@
+>TruSeq LT and TruSeq HT-based kits R1:
+AGATCGGAAGAGCACACGTCTGAACTCCAGTCA
+>TruSeq LT and TruSeq HT-based kits R2:
+AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT
+>ScriptSeq and TruSeq DNA Methylation R1:
+AGATCGGAAGAGCACACGTCTGAAC
+>ScriptSeq and TruSeq DNA Methylation R2:
+AGATCGGAAGAGCGTCGTGTAGGGA
+>TruSeq Small RNA:
+TGGAATTCTCGGGTGCCAAGG
+>TruSeq Ribo Profile:
+AGATCGGAAGAGCACACGTCT
+>AmpliSeq, Nextera, Nextera DNA Flex, Nextera DNA, Nextera XT, Nextera Enrichment, Nextera Rapid Capture Enrichment, TruSight Enrichment, TruSight Rapid Capture Enrichment, TruSight HLA:
+CTGTCTCTTATACACATCT
+>Nextera Mate Pair R1:
+CTGTCTCTTATACACATCT
+>Nextera Mate Pair R2:
+AGATGTGTATAAGAGACAG
