@@ -54,31 +54,52 @@ func AddTrim(mf *makem.MakeData, name string, nsplits int, outdir, scriptdir str
 		r.AddTargets(target)
 		dep := CleanSlash(splitdir + "/split.done")
 		r.AddDeps(dep)
-		nameglob := CleanSlash(fmt.Sprintf("%v_R?_001_split_%04d.fastq.gz", name, i))
+		// nameglob := CleanSlash(fmt.Sprintf("%v_R?_001_split_%04d.fastq.gz", name, i))
+		r1 := CleanSlash(fmt.Sprintf("%v_R1_001_split_%04d.fastq.gz", name, i))
+		r2 := CleanSlash(fmt.Sprintf("%v_R2_001_split_%04d.fastq.gz", name, i))
 		r.AddScripts(
 			"mkdir -p `dirname $@`",
-			CleanSlash(scriptdir + "/trimmomatic_all.sh " + splitdir + " " + trimdir + " '" + nameglob + "'"),
+			CleanSlash(scriptdir + "/trimmomatic_one.sh " + r1 + " " + r2 + " " + trimdir),
 			"touch $@",
 		)
 		mf.Add(r)
 	}
 }
 
+func AddBwaRef(mf *makem.MakeData, name, ref, refdir, outdir, scriptdir string) {
+	oldref := CleanSlash(refdir + "/" + ref + ".fa.gz")
+	bwasplitdir := CleanSlash(outdir + "/bwa_split/")
+
+	var r makem.Recipe
+
+	r.AddTargets(CleanSlash(bwasplitdir + "/reference.fa.done"))
+	r.AddDeps(oldref)
+	r.AddScripts(
+		"mkdir -p `dirname $@`",
+		CleanSlash(scriptdir + "/bwaref.sh " + oldref + " " + bwasplitdir),
+		"touch $@",
+	)
+
+	mf.Add(r)
+}
+
 func AddBwa(mf *makem.MakeData, name string, nsplits int, ref, refdir, outdir, scriptdir string) {
 	trimdir := CleanSlash(outdir + "/trimmomatic/")
 	bwasplitdir := CleanSlash(outdir + "/bwa_split/")
-	oldref := CleanSlash(refdir + "/" + ref + ".fa.gz")
 
 	for i:=0; i<nsplits; i++ {
 		var r makem.Recipe
 		target := CleanSlash(fmt.Sprintf("%v/%v_R1_001_split_%04d.bam.done", bwasplitdir, name, i))
 		r.AddTargets(target)
 		dep := CleanSlash(fmt.Sprintf("%v/trimmomatic_%04d_done.txt", trimdir, i))
-		r.AddDeps(dep)
-		nameglob := CleanSlash(fmt.Sprintf("%v_R?_001_split_%04d_?trimmed.fastq.gz", name, i))
+		refdep := CleanSlash(bwasplitdir + "/reference.fa.done")
+		r.AddDeps(dep, refdep)
+		// nameglob := CleanSlash(fmt.Sprintf("%v_R?_001_split_%04d_?trimmed.fastq.gz", name, i))
+		r1 := CleanSlash(fmt.Sprintf("%v/%v_R1_001_split_%04d_ftrimmed.fastq.gz", trimdir, name, i))
+		r2 := CleanSlash(fmt.Sprintf("%v/%v_R1_001_split_%04d_rtrimmed.fastq.gz", trimdir, name, i))
 		r.AddScripts(
 			"mkdir -p `dirname $@`",
-			CleanSlash(scriptdir + "/bwa_all.sh " + oldref + " " + trimdir + " " + bwasplitdir + " '" + nameglob + "'"),
+			CleanSlash(scriptdir + "/bwa.sh " + bwasplitdir + " " + r1 + " " + r2),
 			"touch $@",
 		)
 		mf.Add(r)
@@ -147,6 +168,7 @@ func AddPairtools(mf *makem.MakeData, name, refdir, ref, outdir, scriptdir strin
 func AddRun(mf *makem.MakeData, p Params) {
 	AddSplit(mf, p.Name, p.Nsplits, p.Indir, p.Outdir, p.Scriptdir)
 	AddTrim(mf, p.Name, p.Nsplits, p.Outdir, p.Scriptdir)
+	AddBwaRef(mf, p.Name, p.Ref, p.Refdir, p.Outdir, p.Scriptdir)
 	AddBwa(mf, p.Name, p.Nsplits, p.Ref, p.Refdir, p.Outdir, p.Scriptdir)
 	AddMerge(mf, p.Name, p.Nsplits, p.Outdir)
 	AddFullBai(mf, p.Name, p.Outdir)
@@ -188,6 +210,11 @@ set -e
 
 NUM_CORES="${SLURM_CPUS_ON_NODE}"
 
+module load trimmomatic/0.39
+module load bwa/2020_03_19
+module load samtools/1.12
+module load python/3.10.3
+
 make -j $NUM_CORES %v
 `,
 		p.Name,
@@ -211,7 +238,7 @@ func MakeSplits(p Params) error {
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(w, "bash %v", splitpath)
+		fmt.Fprintf(w, "bash %v\n", splitpath)
 	}
 	return nil
 }
@@ -238,6 +265,46 @@ set -e
 
 NUM_CORES="${SLURM_CPUS_ON_NODE}"
 
+module load trimmomatic/0.39
+module load bwa/2020_03_19
+module load samtools/1.12
+module load python/3.10.3
+
+make -j $NUM_CORES %v
+`,
+		p.Name,
+		target,
+	)
+	return nil
+}
+
+func MakeStarts(p Params) error {
+	path := fmt.Sprintf("runscripts/run_%v_start.sh", p.Name)
+	w, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer w.Close()
+
+	target := CleanSlash(p.Outdir + "/bwa_split/reference.fa.done")
+
+	fmt.Fprintf(
+		w,
+		`#!/bin/bash
+set -e
+#SBATCH -t 72:00:00    #max:    72 hours (24 on ash)
+#SBATCH -N 1          #format: count or min-max
+#SBATCH -A phadnis    #values: yandell, yandell-em (ember), ucgd-kp (kingspeak)
+#SBATCH -p lonepeak    #kingspeak, ucgd-kp, kingspeak-freecycle, kingspeak-guest
+#SBATCH -J %v_start        #Job name
+
+NUM_CORES="${SLURM_CPUS_ON_NODE}"
+
+module load trimmomatic/0.39
+module load bwa/2020_03_19
+module load samtools/1.12
+module load python/3.10.3
+
 make -j $NUM_CORES %v
 `,
 		p.Name,
@@ -253,7 +320,7 @@ func main() {
 			36,
 			"axw",
 			"/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/hic/data/axw_full/",
-			"/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/refs/combos/axw/axw.fa.gz",
+			"/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/refs/combos/axw/",
 			"/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/hic2/out/axw_1",
 			"scripts/",
 		},
@@ -262,7 +329,7 @@ func main() {
 			38,
 			"ixw",
 			"/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/hic/data/ixl_full/",
-			"/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/refs/combos/ixw/ixw.fa.gz",
+			"/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/refs/combos/ixw/",
 			"/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/hic2/out/ixl_1",
 			"scripts/",
 		},
@@ -271,7 +338,7 @@ func main() {
 			37,
 			"ixw",
 			"/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/hic/data/hxw_full/",
-			"/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/refs/combos/ixw/ixw.fa.gz",
+			"/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/refs/combos/ixw/",
 			"/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/hic2/out/hxw_1",
 			"scripts/",
 		},
@@ -285,6 +352,10 @@ func main() {
 	mf.Fprint(mfFile)
 	os.Mkdir("runscripts", 0777)
 	for _, param := range params {
+		err = MakeStarts(param)
+		if err != nil {
+			panic(err)
+		}
 		err := MakeSplits(param)
 		if err != nil {
 			panic(err)

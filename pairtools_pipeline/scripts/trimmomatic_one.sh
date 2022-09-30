@@ -2,7 +2,8 @@
 
 in1=$1
 in2=$2
-outpre=$3
+OUTDIR=$3
+outpre=${OUTDIR}/`basename $in1 _R1_001.fastq.gz`
 
 FDATAPATH=$in1
 RDATAPATH=$in2

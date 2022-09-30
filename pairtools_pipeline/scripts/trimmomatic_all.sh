@@ -1,3 +1,5 @@
+#!/bin/bash
+
 OUTDIR="${1}"
 INDIR="${2}"
 NAMEGLOB="${3}"
