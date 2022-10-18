@@ -127,6 +127,22 @@ func AddMerge(mf *makem.MakeData, name string, nsplits int, outdir string) {
 	mf.Add(r)
 }
 
+func AddFullBai(mf *makem.MakeData, name, outdir string) {
+	var r makem.Recipe
+
+	bwadir := CleanSlash(outdir + "/bwa/")
+	bam := CleanSlash(bwadir + "/full.bam")
+	r.AddTargets(bam + ".bai.done")
+	r.AddDeps(bam + ".done")
+	r.AddScripts(
+		"mkdir -p `dirname $@`",
+		"samtools index " + bam,
+		"touch $@",
+	)
+
+	mf.Add(r)
+}
+
 func AddPairtools(mf *makem.MakeData, name, refdir, ref, outdir, scriptdir string) {
 	var r makem.Recipe
 
@@ -134,9 +150,8 @@ func AddPairtools(mf *makem.MakeData, name, refdir, ref, outdir, scriptdir strin
 	pairdir := CleanSlash(outdir + "/pairtools/")
 	bam := CleanSlash(bwadir + "/full.bam")
 	r.AddTargets(pairdir + "pairtools_done.txt")
+	r.AddDeps(bam + ".bai.done")
 	pt := CleanSlash(scriptdir + "/pairtools1.sh")
-
-	r.AddDeps(CleanSlash(bam + ".done"))
 
 	chrlens := CleanSlash(refdir + "/" + ref + ".fa.gz.chrlens.txt")
 	output := CleanSlash(pairdir + "/" + name + "_to_" + ref + "ref.pairs")
@@ -156,6 +171,7 @@ func AddRun(mf *makem.MakeData, p Params) {
 	AddBwaRef(mf, p.Name, p.Ref, p.Refdir, p.Outdir, p.Scriptdir)
 	AddBwa(mf, p.Name, p.Nsplits, p.Ref, p.Refdir, p.Outdir, p.Scriptdir)
 	AddMerge(mf, p.Name, p.Nsplits, p.Outdir)
+	AddFullBai(mf, p.Name, p.Outdir)
 	AddPairtools(mf, p.Name, p.Refdir, p.Ref, p.Outdir, p.Scriptdir)
 }
 
