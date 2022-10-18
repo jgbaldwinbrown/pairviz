@@ -18,6 +18,7 @@ type Flags struct {
 	Stdin bool
 	NoFpkm bool
 	Region string
+	SeparateGenomes bool
 }
 
 type Read struct {
@@ -50,6 +51,7 @@ func GetFlags() (f Flags) {
 	flag.BoolVar(&f.Chromosome, "c", false, "Calculate whole-chromosome statistics, not sliding windows.")
 	flag.BoolVar(&f.NoFpkm, "f", false, "Do not compute fpkm statistics.")
 	flag.StringVar(&f.Region, "r", "", "Calculate statistics in a set of regions specified by this bedfile (not compatible with whole-chromosome statistics or window statistics).")
+	flag.BoolVar(&f.SeparateGenomes, "g", false, "Print two entries for each chromosome location, one for each genome, correctly distinguishing self and paired reads (default = false).")
 	flag.Parse()
 
 	f.WinSize = int64(wintemp)
