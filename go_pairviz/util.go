@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"io"
 	"flag"
 	"fmt"
@@ -41,7 +42,7 @@ func Fpkm(count int64, total_sample_reads int64, window_length int64) float64 {
 }
 
 func GetFlags() (f Flags) {
-	err := fmt.Errorf("missing argument")
+	err := fmt.Errorf("Argument parsing error")
 	var wintemp, steptemp, disttemp int
 	flag.StringVar(&f.Name, "n", "", "Name to add to end of table.")
 	flag.IntVar(&wintemp, "w", -1, "Window size.")
@@ -51,7 +52,9 @@ func GetFlags() (f Flags) {
 	flag.BoolVar(&f.Chromosome, "c", false, "Calculate whole-chromosome statistics, not sliding windows.")
 	flag.BoolVar(&f.NoFpkm, "f", false, "Do not compute fpkm statistics.")
 	flag.StringVar(&f.Region, "r", "", "Calculate statistics in a set of regions specified by this bedfile (not compatible with whole-chromosome statistics or window statistics).")
-	flag.BoolVar(&f.SeparateGenomes, "g", false, "Print two entries for each chromosome location, one for each genome, correctly distinguishing self and paired reads (default = false).")
+	flag.BoolVar(&f.SeparateGenomes, "G", false, "Print two entries for each chromosome location, one for each genome, correctly distinguishing self and paired reads (default = false).")
+
+	_ = flag.Int("g", 0, "unused")
 	flag.Parse()
 
 	f.WinSize = int64(wintemp)
@@ -60,6 +63,22 @@ func GetFlags() (f Flags) {
 	f.NameCol = f.Name != ""
 
 	if (f.WinSize == -1 || f.WinStep == -1) && !f.Chromosome && f.Region == "" {
+		if f.WinSize == -1 {
+			fmt.Fprintln(os.Stderr, "Missing -w, winsize")
+		}
+
+		if f.WinStep == -1 {
+			fmt.Fprintln(os.Stderr, "Missing -s, winstep")
+		}
+
+		if !f.Chromosome {
+			fmt.Fprintln(os.Stderr, "Missing -c, chromosome analysis")
+		}
+
+		if f.Region == "" {
+			fmt.Fprintln(os.Stderr, "Missing -r, region")
+		}
+
 		panic(err)
 	}
 	return
