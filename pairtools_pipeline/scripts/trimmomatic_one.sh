@@ -15,7 +15,7 @@ RDATAPATH_TRIMMED_UNPAIRED=${outpre}_rtrimmed_unpaired.fq
 module load trimmomatic/0.39
 
 #trimmomatic PE \
-/uufs/chpc.utah.edu/sys/installdir/trimmomatic/Trimmomatic-0.39/trimmomatic-0.39.jar PE \
+java -jar /uufs/chpc.utah.edu/sys/installdir/trimmomatic/Trimmomatic-0.39/trimmomatic-0.39.jar PE \
     -threads 32 \
     -phred33 \
     $FDATAPATH \
