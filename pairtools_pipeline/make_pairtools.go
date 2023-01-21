@@ -348,6 +348,15 @@ func main() {
 			"/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/hic2/out/hxw_1",
 			"scripts/",
 		},
+		Params {
+			"axw",
+			36,
+			"ixw",
+			"/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/hic/data/axw_full/",
+			"/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/refs/combos/ixw/",
+			"/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/hic3_axw_to_ixw/out/axw_2",
+			"scripts/",
+		},
 	}
 	mf := MakeMakefile(params)
 	mfFile, err := os.Create("Makefile")

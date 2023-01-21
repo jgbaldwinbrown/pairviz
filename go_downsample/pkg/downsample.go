@@ -115,6 +115,20 @@ func GetLowestProps(counts []int) []float64 {
 	return props
 }
 
+func MakeSubsetArgs(dsargs DownsampleArgs, props []float64) []SubsetArgs {
+	var subargs []SubsetArgs
+	for i, set := range dsargs.IoSets {
+		subargs = append(subargs,
+			SubsetArgs{
+				Inpath: set.Inpath,
+				Outpath: set.Outpath,
+				Seed: set.Seed,
+				Prop: props[i],
+		})
+	}
+	return subargs
+}
+
 func RunDownsample() {
 	args := GetArgs()
 	var inpaths []string
@@ -135,17 +149,7 @@ func RunDownsample() {
 
 	props := GetLowestProps(counts)
 
-	var subargs []SubsetArgs
-	for i, set := range args.IoSets {
-		subargs = append(subargs,
-			SubsetArgs{
-				Inpath: set.Inpath,
-				Outpath: set.Outpath,
-				Seed: set.Seed,
-				Prop: props[i],
-		})
-	}
-
+	subargs := MakeSubsetArgs(args, props)
 	err = SubsetPairvizUniqueGzpaths(subargs...)
 	if err != nil {
 		panic(err)
