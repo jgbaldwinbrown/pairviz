@@ -102,7 +102,7 @@ func SplitByBins(col int, bins []string, path, opre string) error {
 	h := handle("SplitByBins: %w")
 
 	for _, bin := range bins {
-		opath := opre + bin + ".bed"
+		opath := opre + "_" + bin + ".bed"
 		e := SplitBin(col, bin, path, opath)
 		if e != nil { return h(e) }
 	}
@@ -120,6 +120,7 @@ func JoinSplit(inpath, outpath string) error {
 
 	cmd := exec.Command("bedtools", "merge", "-i", inpath)
 	cmd.Stdout = bw
+	cmd.Stderr = os.Stderr
 
 	e = cmd.Run()
 	if e != nil { return h(e) }
@@ -129,11 +130,35 @@ func JoinSplit(inpath, outpath string) error {
 
 func JoinSplits(bins []string, opre string) error {
 	for _, bin := range bins {
-		inpath := opre + bin + ".bed"
-		outpath := opre + bin + "_joined.bed"
+		inpath := opre + "_" + bin + ".bed"
+		outpath := opre + "_" + bin + "_joined.bed"
 		e := JoinSplit(inpath, outpath)
 		if e != nil { return fmt.Errorf("JoinSplits: %w") }
 	}
+	return nil
+}
+
+func GetFasta(fapath, inpath, outpath string) error {
+	h := handle("GetFasta: %w")
+	cmd := exec.Command("bedtools", "getfasta", "-bed", inpath, "-o", outpath, "-fi", fapath)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	e := cmd.Run()
+	if e != nil { return h(e) }
+	return nil
+}
+
+func GetFastas(fapath string, bins []string, opre string) error {
+	h := handle("GetFastas: %w")
+
+	for _, bin := range bins {
+		inpath := opre + "_" + bin + "_joined.bed"
+		outpath := opre + "_" + bin + "_joined.fa"
+		e := GetFasta(fapath, inpath, outpath)
+		if e != nil { return h(e) }
+	}
+
 	return nil
 }
 
@@ -141,6 +166,7 @@ func main() {
 	bincolp := flag.Int("c", -1, "bin column")
 	inpathp := flag.String("i", "", "Input path")
 	oprep := flag.String("o", "", "Output prefix")
+	fap := flag.String("f", "", "genome fasta file to use for generating subset fasta files")
 	flag.Parse()
 	if *bincolp == -1 { log.Fatal("missing -c") }
 	if *inpathp == "" { log.Fatal("missing -i") }
@@ -154,6 +180,11 @@ func main() {
 
 	e = JoinSplits(bins, *oprep)
 	if e != nil { panic(e) }
+
+	if *fap != "" {
+		e = GetFastas(*fap, bins, *oprep)
+		if e != nil { panic(e) }
+	}
 }
 
 /*
@@ -173,4 +204,13 @@ func main() {
  91 }
  92 
 
+*/
+
+/*
+Usage:   bedtools getfasta [OPTIONS] -fi <fasta> -bed <bed/gff/vcf>
+
+Options: 
+	-fi	Input FASTA file
+	-fo	Output file (opt., default is STDOUT
+	-bed	BED/GFF/VCF file of ranges to extract from -fi
 */
