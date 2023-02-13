@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strconv"
 	"bufio"
 	"io"
 	"os"
@@ -42,6 +43,17 @@ func CreateCsv(path string) (*os.File, *csv.Writer, error) {
 	cw.Comma = rune('\t')
 
 	return w, cw, nil
+}
+
+func CreateBufFile(path string) (*os.File, *bufio.Writer, error) {
+	h := handle("CreateBufFile: %w")
+
+	w, e := os.Create(path)
+	if e != nil { return nil, nil, h(e) }
+
+	bw := bufio.NewWriter(w)
+
+	return w, bw, nil
 }
 
 func FindBins(col int, path string) ([]string, error) {
@@ -211,12 +223,105 @@ func GetFastasBg(fapath string, bins []string, opre string) error {
 	return nil
 }
 
+type ChopArgs struct {
+	Bins []string
+	Opre string
+	Fa string
+	Bg bool
+	Chop int64
+}
+
+func ParseBedCoords(line []string) (start, end int64, err error) {
+	h := handle("ParseBedCoords: %w")
+	if len(line) < 3 {
+		return -1, -1, h(fmt.Errorf("len(line) %v < 3", len(line)))
+	}
+	start, e := strconv.ParseInt(line[1], 0, 64)
+	if e != nil { return -1, -1, h(e) }
+	end, e = strconv.ParseInt(line[2], 0, 64)
+	if e != nil { return -1, -1, h(e) }
+	return start, end, nil
+}
+
+func ChopBed(inpath, outpath string, chop int64) error {
+	h := handle("ChopBed: %w")
+
+	r, cr, e := OpenCsv(inpath)
+	if e != nil { return h(e) }
+	defer r.Close()
+
+	w, bw, e := CreateBufFile(outpath)
+	if e != nil { return h(e) }
+	defer w.Close()
+	defer bw.Flush()
+
+	for line, e := cr.Read(); e != io.EOF; line, e = cr.Read() {
+		if e != nil { return h(e) }
+		start, end, e := ParseBedCoords(line)
+		if e != nil { return h(e) }
+		var i int64
+		for i = start; i < end; i += chop {
+			iend := i + chop
+			if iend > end {
+				iend = end
+			}
+			_, e = fmt.Fprintf(bw, "%v\t%v\t%v\n", line[0], i, iend)
+			if e != nil { return h(e) }
+		}
+	}
+
+	return nil
+}
+
+func RunChop(args ChopArgs) error {
+	if args.Chop == -1 {
+		return nil
+	}
+	h := handle("RunChop: %w")
+
+	for _, bin := range args.Bins {
+		inpath := args.Opre + "_" + bin + "_joined.bed"
+		opath := args.Opre + "_" + bin + fmt.Sprintf("_joined_chopped%v.bed", args.Chop)
+		e := ChopBed(inpath, opath, args.Chop)
+		if e != nil { return h(e) }
+	}
+
+	if args.Bg {
+		for _, bin := range args.Bins {
+			inpath := args.Opre + "_" + bin + "_bg_joined.bed"
+			opath := args.Opre + "_" + bin + fmt.Sprintf("_bg_joined_chopped%v.bed", args.Chop)
+			e := ChopBed(inpath, opath, args.Chop)
+			if e != nil { return h(e) }
+		}
+	}
+
+	if args.Fa != "" {
+		for _, bin := range args.Bins {
+			inpath := args.Opre + "_" + bin + fmt.Sprintf("_joined_chopped%v.bed", args.Chop)
+			opath := args.Opre + "_" + bin + fmt.Sprintf("_joined_chopped%v.fa", args.Chop)
+			e := GetFasta(args.Fa, inpath, opath)
+			if e != nil { return h(e) }
+		}
+
+		if args.Bg {
+			for _, bin := range args.Bins {
+				inpath := args.Opre + "_" + bin + fmt.Sprintf("_bg_joined_chopped%v.bed", args.Chop)
+				opath := args.Opre + "_" + bin + fmt.Sprintf("_bg_joined_chopped%v.fa", args.Chop)
+				e := GetFasta(args.Fa, inpath, opath)
+				if e != nil { return h(e) }
+			}
+		}
+	}
+	return nil
+}
+
 func main() {
 	bincolp := flag.Int("c", -1, "bin column")
 	inpathp := flag.String("i", "", "Input path")
 	oprep := flag.String("o", "", "Output prefix")
 	fap := flag.String("f", "", "genome fasta file to use for generating subset fasta files")
 	bgp := flag.Bool("bg", false, "Generate a background file that contains the opposite of the binned files")
+	chopp := flag.Int("chop", -1, "Chop fasta files into pieces no larger than specified size")
 	flag.Parse()
 	if *bincolp == -1 { log.Fatal("missing -c") }
 	if *inpathp == "" { log.Fatal("missing -i") }
@@ -251,5 +356,7 @@ func main() {
 		if e != nil { panic(e) }
 	}
 
-
+	args := ChopArgs{bins, *oprep, *fap, *bgp, int64(*chopp)}
+	e = RunChop(args)
+	if e != nil { panic(e) }
 }
