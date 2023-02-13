@@ -70,7 +70,7 @@ func FindBins(col int, path string) ([]string, error) {
 	return bins, nil
 }
 
-func SplitBin(col int, bin string, path, opath string) error {
+func SplitBin(col int, bins []string, path, opath string) error {
 	h := handle("SplitBin: %w")
 
 	r, cr, e := OpenCsv(path)
@@ -82,6 +82,11 @@ func SplitBin(col int, bin string, path, opath string) error {
 	defer w.Close()
 	defer cw.Flush()
 
+	binset := map[string]struct{}{}
+	for _, bin := range bins {
+		binset[bin] = struct{}{}
+	}
+
 	for line, e := cr.Read(); e != io.EOF; line, e = cr.Read() {
 		if e != nil { return h(e) }
 
@@ -89,7 +94,7 @@ func SplitBin(col int, bin string, path, opath string) error {
 			continue
 		}
 
-		if line[col] == bin {
+		if _, ok := binset[line[col]]; ok {
 			e = cw.Write(line)
 			if e != nil { return h(e) }
 		}
@@ -103,7 +108,28 @@ func SplitByBins(col int, bins []string, path, opre string) error {
 
 	for _, bin := range bins {
 		opath := opre + "_" + bin + ".bed"
-		e := SplitBin(col, bin, path, opath)
+		e := SplitBin(col, []string{bin}, path, opath)
+		if e != nil { return h(e) }
+	}
+	return nil
+}
+
+func AllBut[T comparable](tolose string, bins []string) []string {
+	var out []string
+	for _, bin := range bins {
+		if tolose != bin {
+			out = append(out, bin)
+		}
+	}
+	return out
+}
+
+func SplitByBinsBg(col int, bins []string, path, opre string) error {
+	h := handle("SplitByBinsBg: %w")
+
+	for _, bin := range bins {
+		opath := opre + "_" + bin + "_bg.bed"
+		e := SplitBin(col, AllBut[string](bin, bins), path, opath)
 		if e != nil { return h(e) }
 	}
 	return nil
@@ -138,9 +164,19 @@ func JoinSplits(bins []string, opre string) error {
 	return nil
 }
 
+func JoinSplitsBg(bins []string, opre string) error {
+	for _, bin := range bins {
+		inpath := opre + "_" + bin + "_bg.bed"
+		outpath := opre + "_" + bin + "_bg_joined.bed"
+		e := JoinSplit(inpath, outpath)
+		if e != nil { return fmt.Errorf("JoinSplits: %w") }
+	}
+	return nil
+}
+
 func GetFasta(fapath, inpath, outpath string) error {
 	h := handle("GetFasta: %w")
-	cmd := exec.Command("bedtools", "getfasta", "-bed", inpath, "-o", outpath, "-fi", fapath)
+	cmd := exec.Command("bedtools", "getfasta", "-bed", inpath, "-fo", outpath, "-fi", fapath)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
@@ -162,11 +198,25 @@ func GetFastas(fapath string, bins []string, opre string) error {
 	return nil
 }
 
+func GetFastasBg(fapath string, bins []string, opre string) error {
+	h := handle("GetFastas: %w")
+
+	for _, bin := range bins {
+		inpath := opre + "_" + bin + "_bg_joined.bed"
+		outpath := opre + "_" + bin + "_bg_joined.fa"
+		e := GetFasta(fapath, inpath, outpath)
+		if e != nil { return h(e) }
+	}
+
+	return nil
+}
+
 func main() {
 	bincolp := flag.Int("c", -1, "bin column")
 	inpathp := flag.String("i", "", "Input path")
 	oprep := flag.String("o", "", "Output prefix")
 	fap := flag.String("f", "", "genome fasta file to use for generating subset fasta files")
+	bgp := flag.Bool("bg", false, "Generate a background file that contains the opposite of the binned files")
 	flag.Parse()
 	if *bincolp == -1 { log.Fatal("missing -c") }
 	if *inpathp == "" { log.Fatal("missing -i") }
@@ -185,32 +235,21 @@ func main() {
 		e = GetFastas(*fap, bins, *oprep)
 		if e != nil { panic(e) }
 	}
+
+	if !*bgp {
+		return
+	}
+
+	e = SplitByBinsBg(*bincolp, bins, *inpathp, *oprep)
+	if e != nil { panic(e) }
+
+	e = JoinSplitsBg(bins, *oprep)
+	if e != nil { panic(e) }
+
+	if *fap != "" {
+		e = GetFastasBg(*fap, bins, *oprep)
+		if e != nil { panic(e) }
+	}
+
+
 }
-
-/*
- 78 func MergeHitsString() string {
- 79         return `#!/bin/bash
- 80 set -e
- 81 
- 82 mawk -F "\t" -v OFS="\t" '$'${1}' >= '${2}' || $'${1}' == "inf"{
- 83         $3=sprintf("%d", $3);
- 84         if ($2 < 0) { $2 = 0 };
- 85         if ($3 < 0) { $3 = 0 };
- 86         print $0
- 87 }' \
- 88 > ${3}_thresholded.bed
- 89 
- 90 bedtools merge -i ${3}_thresholded.bed > ${3}_thresh_merge.bed`
- 91 }
- 92 
-
-*/
-
-/*
-Usage:   bedtools getfasta [OPTIONS] -fi <fasta> -bed <bed/gff/vcf>
-
-Options: 
-	-fi	Input FASTA file
-	-fo	Output file (opt., default is STDOUT
-	-bed	BED/GFF/VCF file of ranges to extract from -fi
-*/
