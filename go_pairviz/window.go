@@ -122,7 +122,7 @@ func WinStats(flags Flags, r io.Reader) (stats AllWinStats) {
 		if !ok {
 			continue
 		}
-		if RangeBad(flags.Distance, pair) {
+		if RangeBad(flags.Distance, flags.MinDistance, flags.PairMinDistance, pair) {
 			continue
 		}
 

@@ -92,7 +92,7 @@ func GetRegionStats(flags Flags, r io.Reader) (stats RegionStats, err error) {
 			stats.TotalGoodHits++
 		}
 		for i, _ := range stats.Regions {
-			if Overlap(pair, stats.Regions[i]) && !RangeBad(flags.Distance, pair) {
+			if Overlap(pair, stats.Regions[i]) && !RangeBad(flags.Distance, flags.MinDistance, flags.PairMinDistance, pair) {
 				IncrementRegion(pair, &stats.Regions[i])
 			}
 		}
