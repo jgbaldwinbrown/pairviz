@@ -167,19 +167,17 @@ func JoinSplit(inpath, outpath string) error {
 }
 
 func JoinSplits(bins []string, opre string) error {
-	for _, bin := range bins {
-		inpath := opre + "_" + bin + ".bed"
-		outpath := opre + "_" + bin + "_joined.bed"
-		e := JoinSplit(inpath, outpath)
-		if e != nil { return fmt.Errorf("JoinSplits: %w") }
-	}
-	return nil
+	return JoinSplitsFlex(bins, opre + "_", ".bed", opre + "_", "_joined.bed")
 }
 
 func JoinSplitsBg(bins []string, opre string) error {
+	return JoinSplitsFlex(bins, opre + "_", "_bg.bed", opre + "_", "_bg_joined.bed")
+}
+
+func JoinSplitsFlex(bins []string, inpre, insuf, opre, osuf string) error {
 	for _, bin := range bins {
-		inpath := opre + "_" + bin + "_bg.bed"
-		outpath := opre + "_" + bin + "_bg_joined.bed"
+		inpath := inpre + bin + insuf
+		outpath := opre + bin + osuf
 		e := JoinSplit(inpath, outpath)
 		if e != nil { return fmt.Errorf("JoinSplits: %w") }
 	}
@@ -187,40 +185,39 @@ func JoinSplitsBg(bins []string, opre string) error {
 }
 
 func GetFasta(fapath, inpath, outpath string) error {
-	h := handle("GetFasta: %w")
+	h := handle("GetFasta: fapath: %v inpath: %v; outpath: %v; %w")
 	cmd := exec.Command("bedtools", "getfasta", "-bed", inpath, "-fo", outpath, "-fi", fapath)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
 	e := cmd.Run()
-	if e != nil { return h(e) }
+	if e != nil { return h(fapath, inpath, outpath, e) }
+	return nil
+}
+
+func GetFastasFlex(fapath string, bins []string, inpre, insuf, opre, osuf string) error {
+	h := handle("GetFastasFlex: %w")
+
+	for _, bin := range bins {
+		inpath := inpre + bin + insuf
+		outpath := opre + bin + osuf
+		e := GetFasta(fapath, inpath, outpath)
+		if e != nil { return h(e) }
+	}
+
 	return nil
 }
 
 func GetFastas(fapath string, bins []string, opre string) error {
-	h := handle("GetFastas: %w")
+	return GetFastasFlex(fapath, bins, opre + "_", "_joined.bed", opre + "_", "_joined.fa")
+}
 
-	for _, bin := range bins {
-		inpath := opre + "_" + bin + "_joined.bed"
-		outpath := opre + "_" + bin + "_joined.fa"
-		e := GetFasta(fapath, inpath, outpath)
-		if e != nil { return h(e) }
-	}
-
-	return nil
+func GetBreakpointFastas(fapath string, bins []string, opre string) error {
+	return GetFastasFlex(fapath, bins, opre + "_", "_joined_break.bed", opre + "_", "_joined_break.fa")
 }
 
 func GetFastasBg(fapath string, bins []string, opre string) error {
-	h := handle("GetFastas: %w")
-
-	for _, bin := range bins {
-		inpath := opre + "_" + bin + "_bg_joined.bed"
-		outpath := opre + "_" + bin + "_bg_joined.fa"
-		e := GetFasta(fapath, inpath, outpath)
-		if e != nil { return h(e) }
-	}
-
-	return nil
+	return GetFastasFlex(fapath, bins, opre + "_", "_bg_joined.bed", opre + "_", "_bg_joined.fa")
 }
 
 type ChopArgs struct {
@@ -229,6 +226,7 @@ type ChopArgs struct {
 	Fa string
 	Bg bool
 	Chop int64
+	Breakwidth int64
 }
 
 func ParseBedCoords(line []string) (start, end int64, err error) {
@@ -245,6 +243,7 @@ func ParseBedCoords(line []string) (start, end int64, err error) {
 
 func ChopBed(inpath, outpath string, chop int64) error {
 	h := handle("ChopBed: %w")
+	// fmt.Printf("ChopBed: inpath: %v; outpath: %v; chop: %v\n", inpath, outpath, chop)
 
 	r, cr, e := OpenCsv(inpath)
 	if e != nil { return h(e) }
@@ -273,46 +272,138 @@ func ChopBed(inpath, outpath string, chop int64) error {
 	return nil
 }
 
+func ChopBedFlex(bins []string, inpre, insuf, opre, osuf string, chop int64) error {
+	for _, bin := range bins {
+		inpath := inpre + bin + insuf
+		opath := opre + bin + osuf + fmt.Sprintf("_chopped%v.bed", chop)
+		e := ChopBed(inpath, opath, chop)
+		if e != nil { return fmt.Errorf("ChopBedFlex: %w", e) }
+	}
+	return nil
+}
+
 func RunChop(args ChopArgs) error {
 	if args.Chop == -1 {
 		return nil
 	}
 	h := handle("RunChop: %w")
+	// fmt.Println("running chop")
 
-	for _, bin := range args.Bins {
-		inpath := args.Opre + "_" + bin + "_joined.bed"
-		opath := args.Opre + "_" + bin + fmt.Sprintf("_joined_chopped%v.bed", args.Chop)
-		e := ChopBed(inpath, opath, args.Chop)
+	pre := args.Opre + "_"
+	e := ChopBedFlex(args.Bins, pre, "_joined.bed", pre, "_joined", args.Chop)
+	if e != nil { return h(e) }
+
+	if args.Bg {
+		// fmt.Println("running chop on bg")
+		e = ChopBedFlex(args.Bins, pre, "_bg_joined.bed", pre, "_bg_joined", args.Chop)
 		if e != nil { return h(e) }
 	}
 
-	if args.Bg {
-		for _, bin := range args.Bins {
-			inpath := args.Opre + "_" + bin + "_bg_joined.bed"
-			opath := args.Opre + "_" + bin + fmt.Sprintf("_bg_joined_chopped%v.bed", args.Chop)
-			e := ChopBed(inpath, opath, args.Chop)
-			if e != nil { return h(e) }
-		}
+	if args.Breakwidth != -1 {
+		// fmt.Println("running chop on breakpoints")
+		e = ChopBedFlex(args.Bins, pre, "_joined_break.bed", pre, "_joined_break", args.Chop)
+		if e != nil { return h(e) }
+
+		// if args.Bg {
+		// 	fmt.Println("running chop on bg breakpoints")
+		// 	e = ChopBedFlex(args.Bins, pre, "_bg_joined_break.bed", pre, "_bg_joined_break", args.Chop)
+		// 	if e != nil { return h(e) }
+		// }
 	}
 
 	if args.Fa != "" {
-		for _, bin := range args.Bins {
-			inpath := args.Opre + "_" + bin + fmt.Sprintf("_joined_chopped%v.bed", args.Chop)
-			opath := args.Opre + "_" + bin + fmt.Sprintf("_joined_chopped%v.fa", args.Chop)
-			e := GetFasta(args.Fa, inpath, opath)
+		suf := fmt.Sprintf("_joined_chopped%v", args.Chop)
+		e = GetFastasFlex( args.Fa, args.Bins, pre, suf + ".bed", pre, suf + ".fa")
+		if e != nil { return h(e) }
+
+		if args.Bg {
+			suf := fmt.Sprintf("_bg_joined_chopped%v", args.Chop)
+			e = GetFastasFlex( args.Fa, args.Bins, pre, suf + ".bed", pre, suf + ".fa")
 			if e != nil { return h(e) }
 		}
 
-		if args.Bg {
-			for _, bin := range args.Bins {
-				inpath := args.Opre + "_" + bin + fmt.Sprintf("_bg_joined_chopped%v.bed", args.Chop)
-				opath := args.Opre + "_" + bin + fmt.Sprintf("_bg_joined_chopped%v.fa", args.Chop)
-				e := GetFasta(args.Fa, inpath, opath)
-				if e != nil { return h(e) }
-			}
+		if args.Breakwidth != -1 {
+			suf := fmt.Sprintf("_joined_break_chopped%v", args.Chop)
+			e = GetFastasFlex( args.Fa, args.Bins, pre, suf + ".bed", pre, suf + ".fa")
+			if e != nil { return h(e) }
 		}
+
 	}
 	return nil
+}
+
+func GetBreakpointsOne(inpath, outpath string, breakwidth int64) error {
+	h := handle("GetBreakpointsOne: %w")
+
+	r, cr, e := OpenCsv(inpath)
+	if e != nil { return h(e) }
+	defer r.Close()
+
+	w, bw, e := CreateBufFile(outpath)
+	if e != nil { return h(e) }
+	defer w.Close()
+	defer bw.Flush()
+
+	for line, e := cr.Read(); e != io.EOF; line, e = cr.Read() {
+		if e != nil { return h(e) }
+		start, end, e := ParseBedCoords(line)
+		if e != nil { return h(e) }
+
+		newstart := start - breakwidth
+		if newstart < 0 {
+			newstart = 0
+		}
+		newend := end - breakwidth
+		if newend < 0 {
+			newend = 0
+		}
+		_, e = fmt.Fprintf(bw, "%v\t%v\t%v\n", line[0], newstart, start + breakwidth)
+		if e != nil { return h(e) }
+		_, e = fmt.Fprintf(bw, "%v\t%v\t%v\n", line[0], newend, end + breakwidth)
+	}
+
+	return nil
+}
+
+type BreakArgs struct {
+	Bins []string
+	Opre string
+	Breakwidth int64
+}
+
+type BreakFlexArgs struct {
+	Bins []string
+	Inpre string
+	Insuf string
+	Opre string
+	Osuf string
+	Breakwidth int64
+}
+
+func GetBreakpointsFlex(args BreakFlexArgs) error {
+	for _, bin := range args.Bins {
+		e := GetBreakpointsOne(
+			args.Inpre + bin + args.Insuf,
+			args.Opre + bin + args.Osuf,
+			args.Breakwidth,
+		)
+		if e != nil { return fmt.Errorf("GetBreakpointsFlex: %w", e) }
+	}
+	return nil
+}
+
+func GetBreakpoints(args BreakArgs) error {
+	if args.Breakwidth == -1 {
+		return nil
+	}
+	return GetBreakpointsFlex(BreakFlexArgs{
+		args.Bins,
+		args.Opre + "_",
+		"_joined.bed",
+		args.Opre + "_",
+		"_joined_break.bed",
+		args.Breakwidth,
+	})
 }
 
 func main() {
@@ -322,6 +413,7 @@ func main() {
 	fap := flag.String("f", "", "genome fasta file to use for generating subset fasta files")
 	bgp := flag.Bool("bg", false, "Generate a background file that contains the opposite of the binned files")
 	chopp := flag.Int("chop", -1, "Chop fasta files into pieces no larger than specified size")
+	breakwidthp := flag.Int("breakpoint", -1, "Width of span to identify around breakpoints")
 	flag.Parse()
 	if *bincolp == -1 { log.Fatal("missing -c") }
 	if *inpathp == "" { log.Fatal("missing -i") }
@@ -336,27 +428,31 @@ func main() {
 	e = JoinSplits(bins, *oprep)
 	if e != nil { panic(e) }
 
+	e = GetBreakpoints(BreakArgs{bins, *oprep, int64(*breakwidthp)})
+	if e != nil { panic(e) }
+
 	if *fap != "" {
 		e = GetFastas(*fap, bins, *oprep)
 		if e != nil { panic(e) }
-	}
 
-	if !*bgp {
-		return
-	}
-
-	e = SplitByBinsBg(*bincolp, bins, *inpathp, *oprep)
-	if e != nil { panic(e) }
-
-	e = JoinSplitsBg(bins, *oprep)
-	if e != nil { panic(e) }
-
-	if *fap != "" {
-		e = GetFastasBg(*fap, bins, *oprep)
+		e = GetBreakpointFastas(*fap, bins, *oprep)
 		if e != nil { panic(e) }
 	}
 
-	args := ChopArgs{bins, *oprep, *fap, *bgp, int64(*chopp)}
+	if *bgp {
+		e = SplitByBinsBg(*bincolp, bins, *inpathp, *oprep)
+		if e != nil { panic(e) }
+
+		e = JoinSplitsBg(bins, *oprep)
+		if e != nil { panic(e) }
+
+		if *fap != "" {
+			e = GetFastasBg(*fap, bins, *oprep)
+			if e != nil { panic(e) }
+		}
+	}
+
+	args := ChopArgs{bins, *oprep, *fap, *bgp, int64(*chopp), int64(*breakwidthp)}
 	e = RunChop(args)
 	if e != nil { panic(e) }
 }
