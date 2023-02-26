@@ -22,11 +22,48 @@ type Read struct {
 	Parent string
 	Ok bool
 	Pos int64
+	Dir int
 }
 
 type Pair struct {
 	Read1 Read
 	Read2 Read
+}
+
+type Facing int
+
+const (
+	Unknown Facing = iota
+	In
+	Out
+	Match
+)
+
+func (p Pair) Face() Facing {
+	if p.Read1.Dir < 0 && p.Read2.Dir < 0 {
+		return Match
+	}
+	if p.Read1.Dir > 0 && p.Read2.Dir > 0 {
+		return Match
+	}
+
+	lread := p.Read1
+	rread := p.Read2
+
+	if p.Read2.Pos < p.Read1.Pos {
+		lread = p.Read2
+		rread = p.Read1
+	}
+
+	if lread.Dir < 0 && rread.Dir > 0 {
+		return Out
+	}
+
+	if lread.Dir > 0 && rread.Dir < 0 {
+		return In
+	}
+
+	return Unknown
 }
 
 func ParseRead(fields []string) (read Read) {
@@ -42,6 +79,13 @@ func ParseRead(fields []string) (read Read) {
 	if err != nil {
 		panic(err)
 	}
+
+	switch fields[2] {
+		case "+": read.Dir = 1
+		case "-": read.Dir = -1
+		default: read.Dir = 0
+	}
+
 	return
 }
 
@@ -50,8 +94,8 @@ func ParsePair(line []string) (pair Pair, ok bool) {
 		ok = false
 		return
 	}
-	pair.Read1 = ParseRead(line[1:3])
-	pair.Read2 = ParseRead(line[3:5])
+	pair.Read1 = ParseRead(append([]string{}, line[1], line[2], line[5]))
+	pair.Read2 = ParseRead(append([]string{}, line[3], line[4], line[6]))
 	return pair, true
 }
 
@@ -63,7 +107,7 @@ func Abs(x int64) int64 {
 }
 
 func IsAPair(line []string) bool {
-	if len(line) < 5 {
+	if len(line) < 7 {
 		return false
 	}
 	if line[0][0] == '#' {
@@ -94,6 +138,9 @@ func SlicePut[T any](sl *[]T, idx int64, val T) {
 }
 
 func SliceInc(sl *[]int64, idx int64) {
+	if sl == nil {
+		return
+	}
 	*sl = GrowSlice(*sl, idx+1)
 	(*sl)[idx]++
 }
@@ -120,6 +167,24 @@ func Run(r io.Reader, w io.Writer) error {
 	selftranscounts := []int64{}
 	pairtranscounts := []int64{}
 
+	selfincounts := []int64{}
+	pairincounts := []int64{}
+	transincounts := []int64{}
+	selftransincounts := []int64{}
+	pairtransincounts := []int64{}
+
+	selfoutcounts := []int64{}
+	pairoutcounts := []int64{}
+	transoutcounts := []int64{}
+	selftransoutcounts := []int64{}
+	pairtransoutcounts := []int64{}
+
+	selfmatchcounts := []int64{}
+	pairmatchcounts := []int64{}
+	transmatchcounts := []int64{}
+	selftransmatchcounts := []int64{}
+	pairtransmatchcounts := []int64{}
+
 	for line, e := cr.Read(); e != io.EOF; line, e = cr.Read() {
 		if e != nil { return h(e) }
 
@@ -130,20 +195,49 @@ func Run(r io.Reader, w io.Writer) error {
 
 		dist := Abs(p.Read2.Pos - p.Read1.Pos)
 
+		face := p.Face()
+		var selffacecountp, pairfacecountp, transfacecountp, selftransfacecountp, pairtransfacecountp *[]int64 = nil, nil, nil, nil, nil
+		switch face {
+		case In:
+			selffacecountp = &selfincounts
+			pairfacecountp = &pairincounts
+			transfacecountp = &transincounts
+			selftransfacecountp = &selftransincounts
+			pairtransfacecountp = &pairtransincounts
+		case Out:
+			selffacecountp = &selfoutcounts
+			pairfacecountp = &pairoutcounts
+			transfacecountp = &transoutcounts
+			selftransfacecountp = &selftransoutcounts
+			pairtransfacecountp = &pairtransoutcounts
+		case Match:
+			selffacecountp = &selfmatchcounts
+			pairfacecountp = &pairmatchcounts
+			transfacecountp = &transmatchcounts
+			selftransfacecountp = &selftransmatchcounts
+			pairtransfacecountp = &pairtransmatchcounts
+		default:
+		}
+
 		if p.Read1.Chrom != p.Read2.Chrom {
 			SliceInc(&transcounts, dist)
+			SliceInc(transfacecountp, dist)
 			if p.Read1.Parent == p.Read2.Parent {
 				SliceInc(&selftranscounts, dist)
+				SliceInc(selftransfacecountp, dist)
 			} else {
 				SliceInc(&pairtranscounts, dist)
+				SliceInc(pairtransfacecountp, dist)
 			}
 			continue
 		}
 		if p.Read1.Parent == p.Read2.Parent {
 			SliceInc(&selfcounts, dist)
+			SliceInc(selffacecountp, dist)
 			continue
 		}
 		SliceInc(&paircounts, dist)
+		SliceInc(pairfacecountp, dist)
 	}
 
 	maxlen := len(transcounts)
@@ -162,12 +256,41 @@ func Run(r io.Reader, w io.Writer) error {
 
 	for i := 0; i < maxlen; i++ {
 		var s, p, t, st, pt int64 = 0, 0, 0, 0, 0
+		var si, pi, ti, sti, pti int64 = 0, 0, 0, 0, 0
+		var so, po, to, sto, pto int64 = 0, 0, 0, 0, 0
+		var sm, pm, tm, stm, ptm int64 = 0, 0, 0, 0, 0
+
 		if len(selfcounts) > i { s = selfcounts[i] }
 		if len(paircounts) > i { p = paircounts[i] }
 		if len(transcounts) > i { t = transcounts[i] }
 		if len(selftranscounts) > i { st = selftranscounts[i] }
 		if len(pairtranscounts) > i { pt = pairtranscounts[i] }
-		fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\n", i, p, s, t, st, pt)
+
+		if len(selfincounts) > i { si = selfincounts[i] }
+		if len(pairincounts) > i { pi = pairincounts[i] }
+		if len(transincounts) > i { ti = transincounts[i] }
+		if len(selftransincounts) > i { sti = selftransincounts[i] }
+		if len(pairtransincounts) > i { pti = pairtransincounts[i] }
+
+		if len(selfoutcounts) > i { so = selfoutcounts[i] }
+		if len(pairoutcounts) > i { po = pairoutcounts[i] }
+		if len(transoutcounts) > i { to = transoutcounts[i] }
+		if len(selftransoutcounts) > i { sto = selftransoutcounts[i] }
+		if len(pairtransoutcounts) > i { pto = pairtransoutcounts[i] }
+
+		if len(selfmatchcounts) > i { sm = selfmatchcounts[i] }
+		if len(pairmatchcounts) > i { pm = pairmatchcounts[i] }
+		if len(transmatchcounts) > i { tm = transmatchcounts[i] }
+		if len(selftransmatchcounts) > i { stm = selftransmatchcounts[i] }
+		if len(pairtransmatchcounts) > i { ptm = pairtransmatchcounts[i] }
+
+		fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\n",
+			i,
+			p, s, t, st, pt,
+			pi, si, ti, sti, pti,
+			po, so, to, sto, pto,
+			pm, sm, tm, stm, ptm,
+		)
 	}
 
 	return nil
