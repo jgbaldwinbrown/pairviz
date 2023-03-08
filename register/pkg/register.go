@@ -1,4 +1,4 @@
-package main
+package register
 
 import (
 	"io"
@@ -8,7 +8,6 @@ import (
 	"encoding/csv"
 	"strconv"
 	"fmt"
-	"bufio"
 )
 
 func handle(format string) func(...any) error {
@@ -143,14 +142,6 @@ func SliceInc(sl *[]int64, idx int64) {
 	}
 	*sl = GrowSlice(*sl, idx+1)
 	(*sl)[idx]++
-}
-
-func main() {
-	stdout := bufio.NewWriter(os.Stdout)
-	defer stdout.Flush()
-
-	e := Run(os.Stdin, stdout)
-	if e != nil { panic(e) }
 }
 
 func Run(r io.Reader, w io.Writer) error {
