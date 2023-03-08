@@ -33,7 +33,7 @@ func ChromosomeStats(f Flags, r io.Reader) (stats ChromStats) {
 
 		pair, ok := ParsePair(s.Line())
 		if !ok { continue }
-		if RangeBad(f.Distance, f.MinDistance, f.PairMinDistance, pair) { continue }
+		if RangeBad(f.Distance, f.MinDistance, f.PairMinDistance, f.SelfInMinDistance, pair) { continue }
 
 		if pair.Read1.Parent == pair.Read2.Parent {
 			if _, inmap := stats.SelfHits[pair.Read1.Chrom]; !inmap {

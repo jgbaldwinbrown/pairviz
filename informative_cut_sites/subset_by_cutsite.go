@@ -96,7 +96,7 @@ func ParsePairsLine(line []string) (Pairs, error) {
 		p.ReverseGood = false
 	} else {
 		p.ReverseGood = true
-		p.Reverse.Chr = line[1]
+		p.Reverse.Chr = line[3]
 		p.Reverse.Start, e = strconv.ParseInt(line[4], 0, 64)
 		if e != nil { return p, h(e) }
 		p.Reverse.Start--

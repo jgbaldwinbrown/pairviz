@@ -22,6 +22,7 @@ type Flags struct {
 	SeparateGenomes bool
 	MinDistance int64
 	PairMinDistance int64
+	SelfInMinDistance int64
 }
 
 type Read struct {
@@ -29,11 +30,48 @@ type Read struct {
 	Parent string
 	Ok bool
 	Pos int64
+	Dir int
 }
+
+type Facing int
+
+const (
+	Unknown Facing = iota
+	In
+	Out
+	Match
+)
 
 type Pair struct {
 	Read1 Read
 	Read2 Read
+}
+
+func (p Pair) Face() Facing {
+	if p.Read1.Dir < 0 && p.Read2.Dir < 0 {
+		return Match
+	}
+	if p.Read1.Dir > 0 && p.Read2.Dir > 0 {
+		return Match
+	}
+
+	lread := p.Read1
+	rread := p.Read2
+
+	if p.Read2.Pos < p.Read1.Pos {
+		lread = p.Read2
+		rread = p.Read1
+	}
+
+	if lread.Dir < 0 && rread.Dir > 0 {
+		return Out
+	}
+
+	if lread.Dir > 0 && rread.Dir < 0 {
+		return In
+	}
+
+	return Unknown
 }
 
 func Fpkm(count int64, total_sample_reads int64, window_length int64) float64 {
@@ -45,13 +83,14 @@ func Fpkm(count int64, total_sample_reads int64, window_length int64) float64 {
 
 func GetFlags() (f Flags) {
 	err := fmt.Errorf("Argument parsing error")
-	var wintemp, steptemp, disttemp, mindisttemp, pairmindisttemp int
+	var wintemp, steptemp, disttemp, mindisttemp, pairmindisttemp, selfinmindisttemp int
 	flag.StringVar(&f.Name, "n", "", "Name to add to end of table.")
 	flag.IntVar(&wintemp, "w", -1, "Window size.")
 	flag.IntVar(&steptemp, "s", -1, "Window step distance.")
 	flag.IntVar(&disttemp, "d", -1, "Distance between two paired reads before they are ignored.")
 	flag.IntVar(&mindisttemp, "m", -1, "Minimum distance between two self reads reads.")
 	flag.IntVar(&pairmindisttemp, "pm", -1, "Minimum distance between two paired reads.")
+	flag.IntVar(&selfinmindisttemp, "sim", -1, "Minimum distance between inward-facing self reads.")
 	flag.BoolVar(&f.Stdin, "i", false, "Use Stdin as input (ignored; always do this anyway).")
 	flag.BoolVar(&f.Chromosome, "c", false, "Calculate whole-chromosome statistics, not sliding windows.")
 	flag.BoolVar(&f.NoFpkm, "f", false, "Do not compute fpkm statistics.")
@@ -66,6 +105,7 @@ func GetFlags() (f Flags) {
 	f.Distance = int64(disttemp)
 	f.MinDistance = int64(mindisttemp)
 	f.PairMinDistance = int64(pairmindisttemp)
+	f.SelfInMinDistance = int64(selfinmindisttemp)
 	f.NameCol = f.Name != ""
 
 	if (f.WinSize == -1 || f.WinStep == -1) && !f.Chromosome && f.Region == "" {
@@ -103,6 +143,13 @@ func ParseRead(fields []string) (read Read) {
 	if err != nil {
 		panic(err)
 	}
+
+	switch fields[2] {
+		case "+": read.Dir = 1
+		case "-": read.Dir = -1
+		default: read.Dir = 0
+	}
+
 	return
 }
 
@@ -111,8 +158,8 @@ func ParsePair(line []string) (pair Pair, ok bool) {
 		ok = false
 		return
 	}
-	pair.Read1 = ParseRead(line[1:3])
-	pair.Read2 = ParseRead(line[3:5])
+	pair.Read1 = ParseRead(append([]string{}, line[1], line[2], line[5]))
+	pair.Read2 = ParseRead(append([]string{}, line[3], line[4], line[6]))
 	return pair, true
 }
 
@@ -138,8 +185,15 @@ func CheckGood(line []string) bool {
 	return line[1] != "!"
 }
 
-func RangeBad(maxdist int64, mindist int64, pairmindist int64, pair Pair) bool {
+func (p Pair) IsSelfIn() bool {
+	return p.Read1.Chrom == p.Read2.Chrom && p.Read1.Parent == p.Read2.Parent && p.Face() == In
+}
+
+func RangeBad(maxdist int64, mindist int64, pairmindist int64, selfinmindist int64, pair Pair) bool {
 	dist := Abs(pair.Read1.Pos - pair.Read2.Pos)
+	if pair.IsSelfIn() && dist < selfinmindist {
+		return true
+	}
 
 	if pair.Read1.Parent == pair.Read2.Parent {
 		return ((mindist != -1 && dist < mindist) ||
