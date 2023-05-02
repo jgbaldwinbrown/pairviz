@@ -108,7 +108,7 @@ func GetRegionStats(flags Flags, r io.Reader) (stats RegionStats, err error) {
 }
 
 func FprintRegionStats(w io.Writer, stats RegionStats) {
-	FprintHeader(w)
+	FprintHeader(w, true, -1, false)
 	format_string := "%s\t%d\t%d\t%s\t%s\t%d\t%d\t%.8g\t%.8g\t%.8g\t%.8g\t%.8g\t%d\t%d"
 	fpkm_format_string := "\t%.8g\t%.8g\t%.8g\t%.8g"
 	name_format_string := "\t%s"

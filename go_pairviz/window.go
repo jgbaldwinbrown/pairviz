@@ -18,11 +18,16 @@ type AllWinStats struct {
 	Name string
 }
 
+// The counts of hits in a single window
 type HitSet struct {
 	SelfHits int64
 	PairHits int64
+	OvlHits int64
+	NonOvlHits int64
 	SelfFpkm float64
 	PairFpkm float64
+	OvlFpkm float64
+	NonOvlFpkm float64
 }
 
 type HitType int
@@ -30,8 +35,11 @@ type HitType int
 const (
 	S HitType = iota
 	P
+	Ovl
+	NonOvl
 )
 
+// The raw slice of all hits in all windows along a chromosome
 type WinHitList []HitSet
 
 func (h WinHitList) IncWin(index int64, hit_type HitType) WinHitList {
@@ -39,20 +47,30 @@ func (h WinHitList) IncWin(index int64, hit_type HitType) WinHitList {
 	for len(h) <= int(index) {
 		h = append(h, HitSet{})
 	}
-	if hit_type == S {
+	switch hit_type {
+	case S:
 		h[index].SelfHits++
-	} else {
+	case P:
 		h[index].PairHits++
+	case Ovl:
+		h[index].OvlHits++
+	case NonOvl:
+		h[index].NonOvlHits++
 	}
 	return h
 }
 
+// The structure containing hit counts for all windows in all chromosomes in
+// the genome, plus the window size and step information needed to decode the
+// hits.
 type Hits struct {
 	Hits map[string]*WinHitList
 	WinSize int64
 	WinStep int64
 }
 
+// A wrapper for a set of Hits to allow multiple genomes to be independently
+// specified and to match chromosomes between them.
 type GenomeHits struct {
 	Ghits map[string]*Hits
 	WinSize int64
@@ -81,6 +99,9 @@ func (h *Hits) WinsHit(pos int64) (out Range) {
 }
 
 func (h *Hits) AddHit(chrom string, pos int64, hit_type HitType) {
+	// if hit_type == Ovl || hit_type == NonOvl {
+	// 	log.Printf("Hits AddHit: chrom %v; pos %v; hit_type %v\n", chrom, pos, hit_type)
+	// }
 	_, chromhas := h.Hits[chrom]
 	if !chromhas {
 		h.Hits[chrom] = new(WinHitList)
@@ -92,6 +113,9 @@ func (h *Hits) AddHit(chrom string, pos int64, hit_type HitType) {
 }
 
 func (g *GenomeHits) AddHit(genome string, chrom string, pos int64, hit_type HitType) {
+	// if hit_type == Ovl || hit_type == NonOvl {
+	// 	log.Printf("GenomeHits AddHit: genome %v; chrom %v; pos %v; hit_type %v\n", genome, chrom, pos, hit_type)
+	// }
 	if _, ok := g.Ghits[genome]; !ok {
 		h := new(Hits)
 		h.Init(g.WinSize, g.WinStep)
@@ -113,9 +137,11 @@ func WinStats(flags Flags, r io.Reader) (stats AllWinStats) {
 	for s.Scan() {
 		if IsAPair(s.Line()) {
 			stats.TotalReads++
+			// log.Printf("Current total reads: %v", stats.TotalReads)
 		}
 		if CheckGood(s.Line()) {
 			stats.TotalGoodReads++
+			// log.Printf("Current total good reads: %v", stats.TotalGoodReads)
 		}
 
 		pair, ok := ParsePair(s.Line())
@@ -138,6 +164,23 @@ func WinStats(flags Flags, r io.Reader) (stats AllWinStats) {
 			stats.GenomeHits.AddHit(pair.Read1.Parent, pair.Read1.Chrom, pair.Read1.Pos, P)
 			stats.GenomeHits.AddHit(pair.Read2.Parent, pair.Read2.Chrom, pair.Read2.Pos, P)
 		}
+
+		if flags.ReadLen != -1 {
+			// log.Println("checking overlaps")
+			if PairOverlaps(pair, flags.ReadLen) {
+				// log.Println("overlapped")
+				stats.Hits.AddHit(pair.Read1.Chrom, pair.Read1.Pos, Ovl)
+				stats.Hits.AddHit(pair.Read2.Chrom, pair.Read2.Pos, Ovl)
+				stats.GenomeHits.AddHit(pair.Read1.Parent, pair.Read1.Chrom, pair.Read1.Pos, Ovl)
+				stats.GenomeHits.AddHit(pair.Read2.Parent, pair.Read2.Chrom, pair.Read2.Pos, Ovl)
+			} else {
+				// log.Println("nonoverlapped")
+				stats.Hits.AddHit(pair.Read1.Chrom, pair.Read1.Pos, NonOvl)
+				stats.Hits.AddHit(pair.Read2.Chrom, pair.Read2.Pos, NonOvl)
+				stats.GenomeHits.AddHit(pair.Read1.Parent, pair.Read1.Chrom, pair.Read1.Pos, NonOvl)
+				stats.GenomeHits.AddHit(pair.Read2.Parent, pair.Read2.Chrom, pair.Read2.Pos, NonOvl)
+			}
+		}
 		// fmt.Println(stats)
 		// for key, val := range stats.Hits.Hits {
 		// 	fmt.Println(key, *val)
@@ -151,22 +194,35 @@ func WinStats(flags Flags, r io.Reader) (stats AllWinStats) {
 			for index, win := range *chromentries {
 				(*stats.Hits.Hits[chrom])[index].SelfFpkm = Fpkm(win.SelfHits, stats.TotalReads, stats.Hits.WinSize)
 				(*stats.Hits.Hits[chrom])[index].PairFpkm = Fpkm(win.PairHits, stats.TotalReads, stats.Hits.WinSize)
+				(*stats.Hits.Hits[chrom])[index].OvlFpkm = Fpkm(win.OvlHits, stats.TotalReads, stats.Hits.WinSize)
+				(*stats.Hits.Hits[chrom])[index].NonOvlFpkm = Fpkm(win.NonOvlHits, stats.TotalReads, stats.Hits.WinSize)
+			}
+		}
+
+		for genome, genomeentries := range stats.GenomeHits.Ghits {
+			for chrom, chromentries := range genomeentries.Hits {
+				for index, win := range *chromentries {
+					(*stats.GenomeHits.Ghits[genome].Hits[chrom])[index].SelfFpkm = Fpkm(win.SelfHits, stats.TotalReads, stats.Hits.WinSize)
+					(*stats.GenomeHits.Ghits[genome].Hits[chrom])[index].PairFpkm = Fpkm(win.PairHits, stats.TotalReads, stats.Hits.WinSize)
+					(*stats.GenomeHits.Ghits[genome].Hits[chrom])[index].OvlFpkm = Fpkm(win.OvlHits, stats.TotalReads, stats.Hits.WinSize)
+					(*stats.GenomeHits.Ghits[genome].Hits[chrom])[index].NonOvlFpkm = Fpkm(win.NonOvlHits, stats.TotalReads, stats.Hits.WinSize)
+				}
 			}
 		}
 	}
 	return
 }
 
-func FprintWinStats(w io.Writer, stats AllWinStats, separategenomes bool) {
+func FprintWinStats(w io.Writer, stats AllWinStats, separategenomes bool, readlen int64) {
 	if separategenomes {
-		FprintWinStatsSeparateGenomes(w, stats)
+		FprintWinStatsSeparateGenomes(w, stats, readlen)
 	} else {
-		FprintWinStatsPlain(w, stats)
+		FprintWinStatsPlain(w, stats, readlen)
 	}
 }
 
-func FprintWinStatsPlain(w io.Writer, stats AllWinStats) {
-	FprintHeader(w)
+func FprintWinStatsPlain(w io.Writer, stats AllWinStats, readlen int64) {
+	FprintHeader(w, stats.Fpkm, readlen, stats.Name != "")
 	format_string := "%s\t%d\t%d\t%s\t%s\t%d\t%d\t%.8g\t%.8g\t%.8g\t%.8g\t%.8g\t%d\t%d"
 	fpkm_format_string := "\t%.8g\t%.8g\t%.8g\t%.8g"
 	name_format_string := "\t%s"
@@ -198,6 +254,26 @@ func FprintWinStatsPlain(w io.Writer, stats AllWinStats) {
 					win.SelfFpkm / (win.SelfFpkm + win.PairFpkm),
 				)
 			}
+
+			if readlen != -1 {
+				fmt.Fprintf(w,
+					"\t%v\t%v\t%v\t%v",
+					win.OvlHits,
+					win.NonOvlHits,
+					float64(win.OvlHits) / (float64(win.OvlHits) + float64(win.NonOvlHits)),
+					float64(win.NonOvlHits) / (float64(win.OvlHits) + float64(win.NonOvlHits)),
+				)
+				if stats.Fpkm {
+					fmt.Fprintf(w,
+						"\t%v\t%v\t%v\t%v",
+						win.OvlFpkm,
+						win.NonOvlFpkm,
+						float64(win.OvlFpkm) / (float64(win.OvlFpkm) + float64(win.NonOvlFpkm)),
+						float64(win.NonOvlFpkm) / (float64(win.OvlFpkm) + float64(win.NonOvlFpkm)),
+					)
+				}
+			}
+
 			if stats.Name != "" {
 				fmt.Fprintf(w,
 					name_format_string,
@@ -209,8 +285,8 @@ func FprintWinStatsPlain(w io.Writer, stats AllWinStats) {
 	}
 }
 
-func FprintWinStatsSeparateGenomes(w io.Writer, stats AllWinStats) {
-	FprintHeader(w)
+func FprintWinStatsSeparateGenomes(w io.Writer, stats AllWinStats, readlen int64) {
+	FprintHeader(w, stats.Fpkm, readlen, stats.Name != "")
 	format_string := "%s\t%d\t%d\t%s\t%s\t%d\t%d\t%.8g\t%.8g\t%.8g\t%.8g\t%.8g\t%d\t%d"
 	fpkm_format_string := "\t%.8g\t%.8g\t%.8g\t%.8g"
 	name_format_string := "\t%s"
@@ -234,6 +310,7 @@ func FprintWinStatsSeparateGenomes(w io.Writer, stats AllWinStats) {
 					genomeentries.WinSize,
 					genomeentries.WinStep,
 				)
+
 				if stats.Fpkm {
 					fmt.Fprintf(w,
 						fpkm_format_string,
@@ -243,6 +320,26 @@ func FprintWinStatsSeparateGenomes(w io.Writer, stats AllWinStats) {
 						win.SelfFpkm / (win.SelfFpkm + win.PairFpkm),
 					)
 				}
+
+				if readlen != -1 {
+					fmt.Fprintf(w,
+						"\t%v\t%v\t%v\t%v",
+						win.OvlHits,
+						win.NonOvlHits,
+						float64(win.OvlHits) / (float64(win.OvlHits) + float64(win.NonOvlHits)),
+						float64(win.NonOvlHits) / (float64(win.OvlHits) + float64(win.NonOvlHits)),
+					)
+					if stats.Fpkm {
+						fmt.Fprintf(w,
+							"\t%v\t%v\t%v\t%v",
+							win.OvlFpkm,
+							win.NonOvlFpkm,
+							float64(win.OvlFpkm) / (float64(win.OvlFpkm) + float64(win.NonOvlFpkm)),
+							float64(win.NonOvlFpkm) / (float64(win.OvlFpkm) + float64(win.NonOvlFpkm)),
+						)
+					}
+				}
+
 				if stats.Name != "" {
 					fmt.Fprintf(w,
 						name_format_string,

@@ -23,6 +23,7 @@ type Flags struct {
 	MinDistance int64
 	PairMinDistance int64
 	SelfInMinDistance int64
+	ReadLen int64
 }
 
 type Read struct {
@@ -45,6 +46,10 @@ const (
 type Pair struct {
 	Read1 Read
 	Read2 Read
+}
+
+func (p Pair) AbsPosDist() int64 {
+	return Abs(p.Read2.Pos - p.Read1.Pos)
 }
 
 func (p Pair) Face() Facing {
@@ -78,12 +83,13 @@ func Fpkm(count int64, total_sample_reads int64, window_length int64) float64 {
 	pmsf := float64(total_sample_reads) / 1e6
 	fpm := float64(count) / pmsf
 	myfpkm := fpm / (float64(window_length) / 1e3)
+	// log.Printf("Fpkm: count: %v; total_sample_reads: %v; window_length: %v pmsf: %v; fpm: %v; myfpkm: %v\n", count, total_sample_reads, window_length, pmsf, fpm, myfpkm)
 	return myfpkm
 }
 
 func GetFlags() (f Flags) {
 	err := fmt.Errorf("Argument parsing error")
-	var wintemp, steptemp, disttemp, mindisttemp, pairmindisttemp, selfinmindisttemp int
+	var wintemp, steptemp, disttemp, mindisttemp, pairmindisttemp, selfinmindisttemp, readlentemp int
 	flag.StringVar(&f.Name, "n", "", "Name to add to end of table.")
 	flag.IntVar(&wintemp, "w", -1, "Window size.")
 	flag.IntVar(&steptemp, "s", -1, "Window step distance.")
@@ -96,6 +102,7 @@ func GetFlags() (f Flags) {
 	flag.BoolVar(&f.NoFpkm, "f", false, "Do not compute fpkm statistics.")
 	flag.StringVar(&f.Region, "r", "", "Calculate statistics in a set of regions specified by this bedfile (not compatible with whole-chromosome statistics or window statistics).")
 	flag.BoolVar(&f.SeparateGenomes, "G", false, "Print two entries for each chromosome location, one for each genome, correctly distinguishing self and paired reads (default = false).")
+	flag.IntVar(&readlentemp, "rlen", -1, "Length of reads in pairs (used to calculate overlapping or not; skipped otherwise).")
 
 	_ = flag.Int("g", 0, "unused")
 	flag.Parse()
@@ -106,6 +113,7 @@ func GetFlags() (f Flags) {
 	f.MinDistance = int64(mindisttemp)
 	f.PairMinDistance = int64(pairmindisttemp)
 	f.SelfInMinDistance = int64(selfinmindisttemp)
+	f.ReadLen = int64(readlentemp)
 	f.NameCol = f.Name != ""
 
 	if (f.WinSize == -1 || f.WinStep == -1) && !f.Chromosome && f.Region == "" {
@@ -206,6 +214,19 @@ func RangeBad(maxdist int64, mindist int64, pairmindist int64, selfinmindist int
 	}
 }
 
-func FprintHeader(w io.Writer) {
-	fmt.Fprintln(w, "chrom\tstart\tend\thit_type\talt_hit_type\thits\talt_hits\tpair_prop\talt_prop\tpair_totprop\tpair_totgoodprop\tpair_totcloseprop\twinsize\twinstep\tpair_fpkm\talt_fpkm\tpair_prop_fpkm\talt_prop_fpkm")
+func FprintHeader(w io.Writer, fpkm bool, readlen int64, namecol bool) {
+	fmt.Fprint(w, "chrom\tstart\tend\thit_type\talt_hit_type\thits\talt_hits\tpair_prop\talt_prop\tpair_totprop\tpair_totgoodprop\tpair_totcloseprop\twinsize\twinstep")
+	if fpkm {
+		fmt.Fprint(w, "\tpair_fpkm\talt_fpkm\tpair_prop_fpkm\talt_prop_fpkm")
+	}
+	if readlen != -1 {
+		fmt.Fprint(w, "\tovl\tnon_ovl\tovl_prop\tnon_ovl_prop")
+		if fpkm {
+			fmt.Fprint(w, "\tovl_fpkm\tnon_ovl_fpkm\tovl_prop_fpkm\tnon_ovl_prop_fpkm")
+		}
+	}
+	if namecol {
+		fmt.Fprint(w, "name")
+	}
+	fmt.Fprintln(w, "")
 }
