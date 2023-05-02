@@ -65,6 +65,16 @@ func (p Pair) Face() Facing {
 	return Unknown
 }
 
+func (p Pair) ReadType() ReadType {
+	if p.Read1.Chrom != p.Read2.Chrom {
+		return TransType
+	}
+	if p.Read1.Parent == p.Read2.Parent {
+		return SelfType
+	}
+	return PairType
+}
+
 func ParseRead(fields []string) (read Read) {
 	read.Ok = fields[0] != "!"
 	if !read.Ok {
