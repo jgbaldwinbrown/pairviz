@@ -68,3 +68,10 @@ func TestFull(t *testing.T) {
 
 	FprintWinStats(os.Stdout, WinStats(flags, in), flags.SeparateGenomes, flags.ReadLen)
 }
+
+func TestFullSelfInMin(t *testing.T) {
+	flags := gFlags
+	flags.SelfInMinDistance = 3
+	in := strings.NewReader(gTestIn)
+	FprintWinStats(os.Stdout, WinStats(flags, in), flags.SeparateGenomes, flags.ReadLen)
+}
