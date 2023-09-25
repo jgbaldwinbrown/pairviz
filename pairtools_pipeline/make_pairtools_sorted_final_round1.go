@@ -154,7 +154,7 @@ func AddPairtools(mf *makem.MakeData, name, refdir, ref, outdir, scriptdir strin
 	bwadir := path.Clean(outdir + "/bwa" + "/")
 	pairdir := path.Clean(outdir + "/pairtools" + "/")
 	bam := path.Clean(bwadir + "/full.bam")
-	r.AddTargets(pairdir + "pairtools_done.txt")
+	r.AddTargets(filepath.Join(pairdir, "pairtools_done.txt"))
 	r.AddDeps(bam + ".bai.done")
 	pt := path.Clean(scriptdir + "/pairtools1.sh")
 
