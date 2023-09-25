@@ -27,17 +27,17 @@ type Params struct {
 
 func AddSplit(mf *makem.MakeData, name string, nsplits, linesPerSplit int64, indir, outdir, scriptdir string) {
 	var r makem.Recipe
-	target := outdir + "/fq_split/split.done"
+	target := filepath.Clean(outdir + "/fq_split/split.done")
 	deps := []string {
-		path.Clean(indir + "/" + name + "_R1_001.fastq.gz"),
-		path.Clean(indir + "/" + name + "_R2_001.fastq.gz"),
+		filepath.Clean(indir + "/" + name + "_R1_001.fastq.gz"),
+		filepath.Clean(indir + "/" + name + "_R2_001.fastq.gz"),
 	}
 	r.AddTargets(target)
 	r.AddDeps(deps...)
 	r.AddScripts(
 		"mkdir -p `dirname $@`",
-		path.Clean(scriptdir + "/split.sh 32 " + deps[0] + " " + outdir + "/fq_split/" + name + "_R1_001_split_ " + fmt.Sprintf("%v", linesPerSplit)),
-		path.Clean(scriptdir + "/split.sh 32 " + deps[1] + " " + outdir + "/fq_split/" + name + "_R2_001_split_ " + fmt.Sprintf("%v", linesPerSplit)),
+		filepath.Clean(scriptdir + "/split.sh 32 " + deps[0] + " " + outdir + "/fq_split/" + name + "_R1_001_split_ " + fmt.Sprintf("%v", linesPerSplit)),
+		filepath.Clean(scriptdir + "/split.sh 32 " + deps[1] + " " + outdir + "/fq_split/" + name + "_R2_001_split_ " + fmt.Sprintf("%v", linesPerSplit)),
 		"touch $@",
 	)
 	mf.Add(r)
@@ -384,7 +384,7 @@ func BuildParams(names []string, indirPrefix, refdirPrefix, outdirPrefix, script
 }
 
 func VerySmallParams() []Params {
-	names := []string { "nxw_sal", "nxw_adult" }
+	names := []string { "s14xw501_sal", "s14xw501_adult" }
 
 	indirPrefix := "/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/hic4_final/data/21326R/"
 	refdirPrefix := "/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/hic4_final/refs/combos/"
@@ -395,7 +395,7 @@ func VerySmallParams() []Params {
 }
 
 func SmallParams() []Params {
-	names := []string { "ixs_sal", "sxw_sal", "nxw_sal", "nxw_adult" }
+	names := []string { "s14xw501_sal", "s14xw501_adult", "iso1xsaw_sal", "iso1xsaw_adult"  }
 
 	indirPrefix := "/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/hic_final/data/21326R/"
 	refdirPrefix := "/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/hic4_final/refs/combos/"

@@ -65,7 +65,7 @@ func FindPath(id, suffix string, paths []string) (string, error) {
 	return "", fmt.Errorf("FindPath could not find %v, %v", id, suffix)
 }
 
-var NameMap = map[string]string {
+var NameMapOld = map[string]string {
 	"ISO1 X A4": "ixa4",
 	"ISO1 X A7": "ixa7",
 	"Nueva X w501": "nxw",
@@ -76,6 +76,23 @@ var NameMap = map[string]string {
 	"ISO1 X Lhr": "ixl",
 	"ISO1 X Sawamura": "ixs",
 	"Sawamura X w501": "sxw",
+	"Salivary gland": "sal",
+	"Head + thorax": "adult",
+	"Brain + imaginal discs": "brain",
+	"Fat body": "fat",
+}
+
+var NameMap = map[string]string {
+	"ISO1 X A4": "iso1xa4",
+	"ISO1 X A7": "iso1xa7",
+	"Nueva X w501": "s14xw501",
+	"M252 X w501": "m252xw501",
+	"ISO1 X w501": "iso1xw501",
+	"A7 X Nueva": "a7xs14",
+	"Hmr X w501": "hmrxw501",
+	"ISO1 X Lhr": "iso1xlhr",
+	"ISO1 X Sawamura": "iso1xsaw",
+	"Sawamura X w501": "sawxw501",
 	"Salivary gland": "sal",
 	"Head + thorax": "adult",
 	"Brain + imaginal discs": "brain",
