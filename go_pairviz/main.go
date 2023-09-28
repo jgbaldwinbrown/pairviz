@@ -17,6 +17,6 @@ func main() {
 		if err != nil {panic(err)}
 		FprintRegionStats(w, regions)
 	} else {
-		FprintWinStats(w, WinStats(flags, os.Stdin), flags.SeparateGenomes, flags.ReadLen)
+		FprintWinStats(w, WinStats(flags, os.Stdin), flags.SeparateGenomes, flags.ReadLen, flags.JsonOut)
 	}
 }

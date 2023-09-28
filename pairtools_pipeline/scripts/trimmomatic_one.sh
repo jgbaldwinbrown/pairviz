@@ -28,6 +28,7 @@ java -jar /uufs/chpc.utah.edu/sys/installdir/trimmomatic/Trimmomatic-0.39/trimmo
     LEADING:20 \
     TRAILING:20 \
     MINLEN:30
-    
 
+pigz -p 32 ${outpre}*
+    
 #java -jar /absolute/path/to/trimmomatic/trimmomatic-0.36.jar PE -threads $CORES -phred33 $FDATAPATH $RDATAPATH $FDATAPATH_TRIMMED $FDATAPATH_TRIMMED_UNPAIRED $RDATAPATH_TRIMMED $RDATAPATH_TRIMMED_UNPAIRED ILLUMINACLIP:/path/to/adapter/sequences.fa:2:30:10 LEADING:20 TRAILING:20 MINLEN:30 CROP:85

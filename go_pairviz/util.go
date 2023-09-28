@@ -24,6 +24,7 @@ type Flags struct {
 	PairMinDistance int64
 	SelfInMinDistance int64
 	ReadLen int64
+	JsonOut bool
 }
 
 type Read struct {
@@ -103,6 +104,7 @@ func GetFlags() (f Flags) {
 	flag.StringVar(&f.Region, "r", "", "Calculate statistics in a set of regions specified by this bedfile (not compatible with whole-chromosome statistics or window statistics).")
 	flag.BoolVar(&f.SeparateGenomes, "G", false, "Print two entries for each chromosome location, one for each genome, correctly distinguishing self and paired reads (default = false).")
 	flag.IntVar(&readlentemp, "rlen", -1, "Length of reads in pairs (used to calculate overlapping or not; skipped otherwise).")
+	flag.BoolVar(&f.JsonOut, "j", false, "Output as JSON")
 
 	_ = flag.Int("g", 0, "unused")
 	flag.Parse()

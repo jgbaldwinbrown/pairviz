@@ -2,7 +2,6 @@ package main
 
 import (
 	"path/filepath"
-	"path"
 	"time"
 	"bufio"
 	"compress/gzip"
@@ -36,32 +35,34 @@ func AddSplit(mf *makem.MakeData, name string, nsplits, linesPerSplit int64, ind
 	r.AddDeps(deps...)
 	r.AddScripts(
 		"mkdir -p `dirname $@`",
-		filepath.Clean(scriptdir + "/split.sh 32 " + deps[0] + " " + outdir + "/fq_split/" + name + "_R1_001_split_ " + fmt.Sprintf("%v", linesPerSplit)),
-		filepath.Clean(scriptdir + "/split.sh 32 " + deps[1] + " " + outdir + "/fq_split/" + name + "_R2_001_split_ " + fmt.Sprintf("%v", linesPerSplit)),
+		filepath.Clean(scriptdir + "/split.sh") + " 32 " + deps[0] + " " + outdir + "/fq_split/" + name + "_R1_001_split_ " + fmt.Sprintf("%v", linesPerSplit),
+		filepath.Clean(scriptdir + "/split.sh") + " 32 " + deps[1] + " " + outdir + "/fq_split/" + name + "_R2_001_split_ " + fmt.Sprintf("%v", linesPerSplit),
 		"touch $@",
 	)
 	mf.Add(r)
 }
 
+// outpre=${OUTDIR}/`basename $in1 _R1_001.fastq.gz`
+
 func AddTrim(mf *makem.MakeData, name string, nsplits int64, outdir, scriptdir string) {
 
 	// axw_ftrimmed_split_0008.fq.gz.bam
-	splitdir := path.Clean(outdir + "/fq_split/") + "/"
-	trimdir := path.Clean(outdir + "/trimmomatic") + "/"
+	splitdir := filepath.Clean(outdir + "/fq_split/") + "/"
+	trimdir := filepath.Clean(outdir + "/trimmomatic") + "/"
 
 	var i int64
 	for i=0; i<nsplits; i++ {
 		var r makem.Recipe
-		target := path.Clean(fmt.Sprintf("%v/trimmomatic_%04d_done.txt", trimdir, i))
+		target := filepath.Clean(fmt.Sprintf("%v/trimmomatic_%04d_done.txt", trimdir, i))
 		r.AddTargets(target)
-		dep := path.Clean(splitdir + "/split.done")
+		dep := filepath.Clean(splitdir + "/split.done")
 		r.AddDeps(dep)
 		// nameglob := CleanSlash(fmt.Sprintf("%v_R?_001_split_%04d.fastq.gz", name, i))
-		r1 := path.Clean(fmt.Sprintf("%v/%v_R1_001_split_%04d.fastq.gz", splitdir, name, i))
-		r2 := path.Clean(fmt.Sprintf("%v/%v_R2_001_split_%04d.fastq.gz", splitdir, name, i))
+		r1 := filepath.Clean(fmt.Sprintf("%v/%v_R1_001_split_%04d.fastq.gz", splitdir, name, i))
+		r2 := filepath.Clean(fmt.Sprintf("%v/%v_R2_001_split_%04d.fastq.gz", splitdir, name, i))
 		r.AddScripts(
 			"mkdir -p `dirname $@`",
-			path.Clean(scriptdir + "/trimmomatic_one.sh " + r1 + " " + r2 + " " + trimdir),
+			filepath.Clean(scriptdir + "/trimmomatic_one.sh") + " " + r1 + " " + r2 + " " + trimdir,
 			"touch $@",
 		)
 		mf.Add(r)
@@ -69,40 +70,40 @@ func AddTrim(mf *makem.MakeData, name string, nsplits int64, outdir, scriptdir s
 }
 
 func AddBwaRef(mf *makem.MakeData, name, ref, refdir, outdir, scriptdir string) {
-	oldref := path.Clean(refdir + "/" + ref + ".fa.gz")
-	bwasplitdir := path.Clean(outdir + "/bwa_split") + "/"
+	oldref := filepath.Clean(refdir + "/" + ref + "_ecoli.fa.gz")
+	bwasplitdir := filepath.Clean(outdir + "/bwa_split") + "/"
 
 	var r makem.Recipe
 
-	r.AddTargets(path.Clean(bwasplitdir + "/reference.fa.done"))
+	r.AddTargets(filepath.Clean(bwasplitdir + "/reference.fa.done"))
 	r.AddDeps(oldref)
 	r.AddScripts(
 		"mkdir -p `dirname $@`",
-		path.Clean(scriptdir + "/bwaref.sh " + oldref + " " + bwasplitdir),
+		filepath.Clean(scriptdir + "/bwaref.sh") + " " + oldref + " " + bwasplitdir,
 		"touch $@",
 	)
 
 	mf.Add(r)
 }
 
-func AddBwa(mf *makem.MakeData, name string, nsplits int64, ref, refdir, outdir, scriptdir string) {
-	trimdir := path.Clean(outdir + "/trimmomatic") + "/"
-	bwasplitdir := path.Clean(outdir + "/bwa_split") + "/"
+func AddBwa(mf *makem.MakeData, name string, nsplits int64, ref, outdir, scriptdir string) {
+	trimdir := filepath.Clean(outdir + "/trimmomatic") + "/"
+	bwasplitdir := filepath.Clean(outdir + "/bwa_split") + "/"
 
 	var i int64
 	for i=0; i<nsplits; i++ {
 		var r makem.Recipe
-		target := path.Clean(fmt.Sprintf("%v/%v_R1_001_split_%04d.bam.done", bwasplitdir, name, i))
+		target := filepath.Clean(fmt.Sprintf("%v/%v_R1_001_split_%04d.bam.done", bwasplitdir, name, i))
 		r.AddTargets(target)
-		dep := path.Clean(fmt.Sprintf("%v/trimmomatic_%04d_done.txt", trimdir, i))
-		refdep := path.Clean(bwasplitdir + "/reference.fa.done")
+		dep := filepath.Clean(fmt.Sprintf("%v/trimmomatic_%04d_done.txt", trimdir, i))
+		refdep := filepath.Clean(bwasplitdir + "/reference.fa.done")
 		r.AddDeps(dep, refdep)
 
-		r1 := path.Clean(fmt.Sprintf("%v/%v_R1_001_split_%04d.fastq.gz_ftrimmed.fq.gz", trimdir, name, i))
-		r2 := path.Clean(fmt.Sprintf("%v/%v_R1_001_split_%04d.fastq.gz_rtrimmed.fq.gz", trimdir, name, i))
+		r1 := filepath.Clean(fmt.Sprintf("%v/%v_R1_001_split_%04d.fastq.gz_ftrimmed.fq.gz", trimdir, name, i))
+		r2 := filepath.Clean(fmt.Sprintf("%v/%v_R1_001_split_%04d.fastq.gz_rtrimmed.fq.gz", trimdir, name, i))
 		r.AddScripts(
 			"mkdir -p `dirname $@`",
-			path.Clean(scriptdir + "/bwa.sh " + bwasplitdir + " " + r1 + " " + r2),
+			filepath.Clean(scriptdir + "/bwa.sh") + " " + bwasplitdir + " " + r1 + " " + r2,
 			"touch $@",
 		)
 		mf.Add(r)
@@ -111,22 +112,22 @@ func AddBwa(mf *makem.MakeData, name string, nsplits int64, ref, refdir, outdir,
 
 func AddMerge(mf *makem.MakeData, name string, nsplits int64, outdir string) {
 	var r makem.Recipe
-	bwadir := path.Clean(outdir + "/bwa") + "/"
-	bwasplitdir := path.Clean(outdir + "/bwa_split") + "/"
-	output := path.Clean(fmt.Sprintf("%v/full.bam", bwadir))
-	target := path.Clean(fmt.Sprintf("%v/full.bam.done", bwadir))
-	inglob := path.Clean(bwasplitdir + "/*.bam")
+	bwadir := filepath.Clean(outdir + "/bwa") + "/"
+	bwasplitdir := filepath.Clean(outdir + "/bwa_split") + "/"
+	output := filepath.Clean(fmt.Sprintf("%v/full.bam", bwadir))
+	target := filepath.Clean(fmt.Sprintf("%v/full.bam.done", bwadir))
+	inglob := filepath.Clean(bwasplitdir + "/*.bam")
 	r.AddTargets(target)
 	var deps []string
 
 	var i int64
 	for i=0; i<nsplits; i++ {
-		deps = append(deps, path.Clean(fmt.Sprintf("%v/%v_R1_001_split_%04d.bam.done", bwasplitdir, name, i)))
+		deps = append(deps, filepath.Clean(fmt.Sprintf("%v/%v_R1_001_split_%04d.bam.done", bwasplitdir, name, i)))
 	}
 	r.AddDeps(deps...)
 	r.AddScripts(
 		"mkdir -p `dirname $@`",
-		path.Clean("samtools merge - " + inglob + " | samtools sort -n > " + output),
+		filepath.Clean("samtools merge - " + inglob + " | samtools sort -n > " + output),
 		"touch $@",
 	)
 	mf.Add(r)
@@ -135,8 +136,8 @@ func AddMerge(mf *makem.MakeData, name string, nsplits int64, outdir string) {
 func AddFullBai(mf *makem.MakeData, name, outdir string) {
 	var r makem.Recipe
 
-	bwadir := path.Clean(outdir + "/bwa") + "/"
-	bam := path.Clean(bwadir + "/full.bam")
+	bwadir := filepath.Clean(outdir + "/bwa") + "/"
+	bam := filepath.Clean(bwadir + "/full.bam")
 	r.AddTargets(bam + ".bai.done")
 	r.AddDeps(bam + ".done")
 	r.AddScripts(
@@ -151,18 +152,18 @@ func AddFullBai(mf *makem.MakeData, name, outdir string) {
 func AddPairtools(mf *makem.MakeData, name, refdir, ref, outdir, scriptdir string) {
 	var r makem.Recipe
 
-	bwadir := path.Clean(outdir + "/bwa" + "/")
-	pairdir := path.Clean(outdir + "/pairtools" + "/")
-	bam := path.Clean(bwadir + "/full.bam")
+	bwadir := filepath.Clean(outdir + "/bwa" + "/")
+	pairdir := filepath.Clean(outdir + "/pairtools" + "/")
+	bam := filepath.Clean(bwadir + "/full.bam")
 	r.AddTargets(filepath.Join(pairdir, "pairtools_done.txt"))
 	r.AddDeps(bam + ".bai.done")
-	pt := path.Clean(scriptdir + "/pairtools1.sh")
+	pt := filepath.Clean(scriptdir + "/pairtools1.sh")
 
-	chrlens := path.Clean(refdir + "/" + ref + ".fa.gz.chrlens.txt")
-	output := path.Clean(pairdir + "/" + name + "_to_" + ref + "ref.pairs")
+	chrlens := filepath.Clean(refdir + "/" + ref + "_ecoli.fa.gz.chrlens.txt")
+	output := filepath.Clean(pairdir + "/" + name + "_to_" + ref + "ref.pairs")
 	r.AddScripts(
 		"mkdir -p `dirname $@`",
-		path.Clean(pt + " " + bam + " " + chrlens + " " + output),
+		pt + " " + bam + " " + chrlens + " " + output,
 		"touch $@",
 	)
 
@@ -189,7 +190,7 @@ func AddRun(mf *makem.MakeData, p Params) error {
 	AddSplit(mf, p.Name, p.Nsplits, p.LinesPerSplit, p.Indir, p.Outdir, p.Scriptdir)
 	AddTrim(mf, p.Name, p.Nsplits, p.Outdir, p.Scriptdir)
 	AddBwaRef(mf, p.Name, p.Ref, p.Refdir, p.Outdir, p.Scriptdir)
-	AddBwa(mf, p.Name, p.Nsplits, p.Ref, p.Refdir, p.Outdir, p.Scriptdir)
+	AddBwa(mf, p.Name, p.Nsplits, p.Ref, p.Outdir, p.Scriptdir)
 	AddMerge(mf, p.Name, p.Nsplits, p.Outdir)
 	AddFullBai(mf, p.Name, p.Outdir)
 	AddPairtools(mf, p.Name, p.Refdir, p.Ref, p.Outdir, p.Scriptdir)
@@ -221,7 +222,7 @@ func MakeSplit(p Params, i int64) error {
 	}
 	defer w.Close()
 
-	target := path.Clean(fmt.Sprintf("%v/%v_R1_001_split_%04d.bam.done", p.Outdir + "/bwa_split/", p.Name, i))
+	target := filepath.Clean(fmt.Sprintf("%v/%v_R1_001_split_%04d.bam.done", p.Outdir + "/bwa_split/", p.Name, i))
 
 	fmt.Fprintf(
 		w,
@@ -297,7 +298,7 @@ func MakeEnds(p Params) error {
 	}
 	defer w.Close()
 
-	target := path.Clean(p.Outdir + "/pairtools/pairtools_done.txt")
+	target := filepath.Clean(p.Outdir + "/pairtools/pairtools_done.txt")
 
 	fmt.Fprintf(
 		w,
@@ -333,8 +334,8 @@ func MakeStarts(p Params) error {
 	}
 	defer w.Close()
 
-	target := path.Clean(p.Outdir + "/bwa_split/reference.fa.done")
-	target2 := path.Clean(p.Outdir + "/fq_split/split.done")
+	target := filepath.Clean(p.Outdir + "/bwa_split/reference.fa.done")
+	target2 := filepath.Clean(p.Outdir + "/fq_split/split.done")
 
 	fmt.Fprintf(
 		w,
@@ -388,7 +389,7 @@ func VerySmallParams() []Params {
 
 	indirPrefix := "/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/hic4_final/data/21326R/"
 	refdirPrefix := "/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/hic4_final/refs/combos/"
-	outdirPrefix := "/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/hic4_final/out/"
+	outdirPrefix := "/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/hic5_final_ecoli/out/"
 	scriptdir := "scripts/"
 
 	return BuildParams(names, indirPrefix, refdirPrefix, outdirPrefix, scriptdir)
@@ -399,7 +400,7 @@ func SmallParams() []Params {
 
 	indirPrefix := "/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/hic_final/data/21326R/"
 	refdirPrefix := "/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/hic4_final/refs/combos/"
-	outdirPrefix := "/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/hic4_final/out/"
+	outdirPrefix := "/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/hic5_final_ecoli/out/"
 	scriptdir := "scripts/"
 
 	return BuildParams(names, indirPrefix, refdirPrefix, outdirPrefix, scriptdir)
@@ -544,8 +545,8 @@ func CalcSplits(linesPerSplit, lines int64) int64 {
 }
 
 func CalcSplitsFromFq(p Params) (nsplits int64, err error) {
-	outpre := path.Clean(p.Outdir + "/" + p.Name)
-	fapath := path.Clean(p.Indir + "/" + p.Name + "_R1_001.fastq.gz")
+	outpre := filepath.Clean(p.Outdir + "/" + p.Name)
+	fapath := filepath.Clean(p.Indir + "/" + p.Name + "_R1_001.fastq.gz")
 
 	fmt.Fprintf(os.Stderr, "started counting lines from %v, putting result in %v\n", fapath, outpre)
 	lines, err := CountLines(fapath, outpre, true)

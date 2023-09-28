@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"github.com/jgbaldwinbrown/fasttsv"
@@ -213,7 +214,101 @@ func WinStats(flags Flags, r io.Reader) (stats AllWinStats) {
 	return
 }
 
-func FprintWinStats(w io.Writer, stats AllWinStats, separategenomes bool, readlen int64) {
+type JsonOutStat struct {
+	Genome string
+	Chr string
+	Start int64
+	End int64
+	TargetType string
+	AltType string
+	TargetHits float64
+	AltHits float64
+	TargetProp float64
+	AltProp float64
+	TargetPropGoodBad float64
+	TargetPropGood float64
+	TargetPropTotal float64
+	WinSize int64
+	WinStep int64
+	TargetFpkm float64
+	AltFpkm float64
+	TargetFpkmProp float64
+	AltFpkmProp float64
+	AltOvlHits float64
+	AltNonOvlHits float64
+	AltOvlProp float64
+	AltNonOvlProp float64
+	AltOvlFpkm float64
+	AltNonOvlFpkm float64
+	AltOvlFpkmProp float64
+	AltNonOvlFpkmProp float64
+	Name string
+}
+
+func MakeJsonOutStat(genome, chr, name string, stats AllWinStats, winsize, winstep, index int64, win HitSet) JsonOutStat {
+	var j JsonOutStat
+
+	j.Genome = genome
+	j.Chr = chr
+
+	j.Start = int64(index) * winstep
+	j.End = (int64(index) * winstep) + winsize
+	j.TargetType = "paired"
+	j.AltType = "self"
+	j.TargetHits = float64(win.PairHits)
+	j.AltHits = float64(win.SelfHits)
+	j.TargetProp = float64(win.PairHits) / (float64(win.PairHits) + float64(win.SelfHits))
+	j.AltProp = float64(win.SelfHits) / (float64(win.PairHits) + float64(win.SelfHits))
+	j.TargetPropGoodBad = float64(win.PairHits) / (float64(stats.TotalGoodReads) + float64(stats.TotalBadReads))
+	j.TargetPropGood = float64(win.PairHits) / float64(stats.TotalGoodReads)
+	j.TargetPropTotal = float64(win.PairHits) / float64(stats.TotalReads)
+	j.WinSize = winsize
+	j.WinStep = winstep
+
+	j.TargetFpkm = win.PairFpkm
+	j.AltFpkm = win.SelfFpkm
+	j.TargetFpkmProp = win.PairFpkm / (win.SelfFpkm + win.PairFpkm)
+	j.AltFpkmProp = win.SelfFpkm / (win.SelfFpkm + win.PairFpkm)
+
+	j.AltOvlHits = float64(win.OvlHits)
+	j.AltNonOvlHits = float64(win.NonOvlHits)
+	j.AltOvlProp = float64(win.OvlHits) / (float64(win.OvlHits) + float64(win.NonOvlHits))
+	j.AltNonOvlProp = float64(win.NonOvlHits) / (float64(win.OvlHits) + float64(win.NonOvlHits))
+
+	j.AltOvlFpkm = win.OvlFpkm
+	j.AltNonOvlFpkm = win.NonOvlFpkm
+	j.AltOvlFpkmProp = float64(win.OvlFpkm) / (float64(win.OvlFpkm) + float64(win.NonOvlFpkm))
+	j.AltNonOvlFpkmProp = float64(win.NonOvlFpkm) / (float64(win.OvlFpkm) + float64(win.NonOvlFpkm))
+
+	j.Name = name
+
+	return j
+}
+
+func Must(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
+func FprintWinStatsJson(w io.Writer, stats AllWinStats, readlen int64) {
+	enc := json.NewEncoder(w)
+
+	for genome, genomeentries := range stats.GenomeHits.Ghits {
+		for chrom, chromentries := range genomeentries.Hits {
+			for index, win := range *chromentries {
+				j := MakeJsonOutStat(genome, chrom, stats.Name, stats, genomeentries.WinSize, genomeentries.WinStep, int64(index), win)
+				err := enc.Encode(j)
+				Must(err)
+			}
+		}
+	}
+}
+
+func FprintWinStats(w io.Writer, stats AllWinStats, separategenomes bool, readlen int64, jsonOut bool) {
+	if jsonOut {
+		FprintWinStatsJson(w, stats, readlen)
+	}
 	if separategenomes {
 		FprintWinStatsSeparateGenomes(w, stats, readlen)
 	} else {

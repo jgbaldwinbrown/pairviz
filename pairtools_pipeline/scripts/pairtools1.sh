@@ -8,3 +8,4 @@ OUT=$3
 
 # source /data1/jbrown/local_programs/pairtools/anaconda_on.sh
 pairtools parse -c $SIZE -o $OUT --drop-sam $IN
+pigz -p 32 -c < "${OUT}" > "${OUT}.gz"
