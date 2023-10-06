@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"path/filepath"
 	"time"
 	"bufio"
@@ -69,9 +70,13 @@ func AddTrim(mf *makem.MakeData, name string, nsplits int64, outdir, scriptdir s
 	}
 }
 
-func AddBwaRef(mf *makem.MakeData, name, ref, refdir, outdir, scriptdir string) {
+func AddBwaRef(mf *makem.MakeData, name, ref, refdir, outdir, scriptdir, run string) {
 	oldref := filepath.Clean(refdir + "/" + ref + "_ecoli.fa.gz")
 	bwasplitdir := filepath.Clean(outdir + "/bwa_split") + "/"
+
+	if run == "hic4" {
+		oldref = filepath.Clean(refdir + "/" + ref + ".fa.gz")
+	}
 
 	var r makem.Recipe
 
@@ -156,7 +161,7 @@ func AddPairtools(mf *makem.MakeData, name, refdir, ref, outdir, scriptdir strin
 	pairdir := filepath.Clean(outdir + "/pairtools" + "/")
 	bam := filepath.Clean(bwadir + "/full.bam")
 	r.AddTargets(filepath.Join(pairdir, "pairtools_done.txt"))
-	r.AddDeps(bam + ".bai.done")
+	r.AddDeps(bam + ".done")
 	pt := filepath.Clean(scriptdir + "/pairtools1.sh")
 
 	chrlens := filepath.Clean(refdir + "/" + ref + "_ecoli.fa.gz.chrlens.txt")
@@ -182,26 +187,26 @@ func UpdateNsplits(p *Params) error {
 	return nil
 }
 
-func AddRun(mf *makem.MakeData, p Params) error {
+func AddRun(mf *makem.MakeData, p Params, run string) error {
 	if err := UpdateNsplits(&p); err != nil {
 		return err
 	}
 
 	AddSplit(mf, p.Name, p.Nsplits, p.LinesPerSplit, p.Indir, p.Outdir, p.Scriptdir)
 	AddTrim(mf, p.Name, p.Nsplits, p.Outdir, p.Scriptdir)
-	AddBwaRef(mf, p.Name, p.Ref, p.Refdir, p.Outdir, p.Scriptdir)
+	AddBwaRef(mf, p.Name, p.Ref, p.Refdir, p.Outdir, p.Scriptdir, run)
 	AddBwa(mf, p.Name, p.Nsplits, p.Ref, p.Outdir, p.Scriptdir)
 	AddMerge(mf, p.Name, p.Nsplits, p.Outdir)
-	AddFullBai(mf, p.Name, p.Outdir)
+	// AddFullBai(mf, p.Name, p.Outdir)
 	AddPairtools(mf, p.Name, p.Refdir, p.Ref, p.Outdir, p.Scriptdir)
 
 	return nil
 }
 
-func MakeMakefile(params []Params) makem.MakeData {
+func MakeMakefile(params []Params, run string) makem.MakeData {
 	var mf makem.MakeData
 	for _, p := range params {
-		AddRun(&mf, p)
+		AddRun(&mf, p, run)
 	}
 	return mf
 }
@@ -384,13 +389,17 @@ func BuildParams(names []string, indirPrefix, refdirPrefix, outdirPrefix, script
 	return ps
 }
 
-func VerySmallParams() []Params {
+func VerySmallParams(run string) []Params {
 	names := []string { "s14xw501_sal", "s14xw501_adult" }
 
 	indirPrefix := "/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/hic4_final/data/21326R/"
 	refdirPrefix := "/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/hic4_final/refs/combos/"
 	outdirPrefix := "/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/hic5_final_ecoli/out/"
 	scriptdir := "scripts/"
+
+	if run == "hic4" {
+		outdirPrefix = "/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/hic4_final/out/"
+	}
 
 	return BuildParams(names, indirPrefix, refdirPrefix, outdirPrefix, scriptdir)
 }
@@ -558,14 +567,16 @@ func CalcSplitsFromFq(p Params) (nsplits int64, err error) {
 }
 
 func main() {
-	params := VerySmallParams()
+	run := flag.String("r", "", "run (try using \"hic4\")")
+	flag.Parse()
+	params := VerySmallParams(*run)
 	for i, _ := range params {
 		if err := UpdateNsplits(&params[i]); err != nil {
 			panic(err)
 		}
 	}
 
-	mf := MakeMakefile(params)
+	mf := MakeMakefile(params, *run)
 	mfFile, err := os.Create("Makefile")
 	if err != nil {
 		panic(err)
