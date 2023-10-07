@@ -30,7 +30,7 @@ func LinkOne(i Input) error {
 	}
 
 	outr2 := filepath.Join(outdir, fmt.Sprintf("%v_R2_001.fastq.gz", i.Comboname))
-	if err := os.Symlink(i.OldR1, outr2); err != nil {
+	if err := os.Symlink(i.OldR2, outr2); err != nil {
 		return err
 	}
 

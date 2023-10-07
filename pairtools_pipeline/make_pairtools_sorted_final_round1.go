@@ -235,8 +235,8 @@ func MakeSplit(p Params, i int64) error {
 set -e
 #SBATCH -t 72:00:00    #max:    72 hours (24 on ash)
 #SBATCH -N 1          #format: count or min-max
-#SBATCH -A phadnis    #values: yandell, yandell-em (ember), ucgd-kp (kingspeak)
-#SBATCH -p lonepeak    #kingspeak, ucgd-kp, kingspeak-freecycle, kingspeak-guest
+#SBATCH -A owner-guest    #values: yandell, yandell-em (ember), ucgd-kp (kingspeak)
+#SBATCH -p notchpeak-guest    #kingspeak, ucgd-kp, kingspeak-freecycle, kingspeak-guest
 #SBATCH -J %v_split_%v        #Job name
 
 NUM_CORES="${SLURM_CPUS_ON_NODE}"
@@ -311,8 +311,8 @@ func MakeEnds(p Params) error {
 set -e
 #SBATCH -t 72:00:00    #max:    72 hours (24 on ash)
 #SBATCH -N 1          #format: count or min-max
-#SBATCH -A phadnis    #values: yandell, yandell-em (ember), ucgd-kp (kingspeak)
-#SBATCH -p lonepeak    #kingspeak, ucgd-kp, kingspeak-freecycle, kingspeak-guest
+#SBATCH -A owner-guest    #values: yandell, yandell-em (ember), ucgd-kp (kingspeak)
+#SBATCH -p notchpeak-guest    #kingspeak, ucgd-kp, kingspeak-freecycle, kingspeak-guest
 #SBATCH -J %v_end        #Job name
 
 NUM_CORES="${SLURM_CPUS_ON_NODE}"
@@ -348,8 +348,8 @@ func MakeStarts(p Params) error {
 set -e
 #SBATCH -t 72:00:00    #max:    72 hours (24 on ash)
 #SBATCH -N 1          #format: count or min-max
-#SBATCH -A phadnis    #values: yandell, yandell-em (ember), ucgd-kp (kingspeak)
-#SBATCH -p lonepeak    #kingspeak, ucgd-kp, kingspeak-freecycle, kingspeak-guest
+#SBATCH -A owner-guest    #values: yandell, yandell-em (ember), ucgd-kp (kingspeak)
+#SBATCH -p notchpeak-guest    #kingspeak, ucgd-kp, kingspeak-freecycle, kingspeak-guest
 #SBATCH -J %v_start        #Job name
 
 NUM_CORES="${SLURM_CPUS_ON_NODE}"
