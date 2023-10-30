@@ -1,6 +1,7 @@
 package pairviz
 
 import (
+	"os"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -132,6 +133,7 @@ func (g *GenomeHits) Init(winsize, winstep int64) {
 }
 
 func WinStats(flags Flags, r io.Reader) (stats AllWinStats) {
+	stats.Name = flags.Name
 	stats.Hits.Init(flags.WinSize, flags.WinStep)
 	stats.GenomeHits.Init(flags.WinSize, flags.WinStep)
 	s := fasttsv.NewScanner(r)
@@ -316,6 +318,7 @@ func FprintWinStats(w io.Writer, stats AllWinStats, separategenomes bool, readle
 }
 
 func FprintWinStatsPlain(w io.Writer, stats AllWinStats, readlen int64) {
+	fmt.Fprintf(os.Stderr, "WinStatsPlain name: %v\n", stats.Name)
 	FprintHeader(w, stats.Fpkm, readlen, stats.Name != "")
 	format_string := "%s\t%d\t%d\t%s\t%s\t%d\t%d\t%.8g\t%.8g\t%.8g\t%.8g\t%.8g\t%d\t%d"
 	fpkm_format_string := "\t%.8g\t%.8g\t%.8g\t%.8g"
@@ -380,6 +383,7 @@ func FprintWinStatsPlain(w io.Writer, stats AllWinStats, readlen int64) {
 }
 
 func FprintWinStatsSeparateGenomes(w io.Writer, stats AllWinStats, readlen int64) {
+	fmt.Fprintf(os.Stderr, "WinStatsSeparateGenomes name: %v\n", stats.Name)
 	FprintHeader(w, stats.Fpkm, readlen, stats.Name != "")
 	format_string := "%s\t%d\t%d\t%s\t%s\t%d\t%d\t%.8g\t%.8g\t%.8g\t%.8g\t%.8g\t%d\t%d"
 	fpkm_format_string := "\t%.8g\t%.8g\t%.8g\t%.8g"

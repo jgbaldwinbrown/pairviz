@@ -117,6 +117,7 @@ func GetFlags() (f Flags) {
 	f.SelfInMinDistance = int64(selfinmindisttemp)
 	f.ReadLen = int64(readlentemp)
 	f.NameCol = f.Name != ""
+	fmt.Fprintf(os.Stderr, "flag Name: %v; NameCol: %v\n", f.Name, f.NameCol)
 
 	if (f.WinSize == -1 || f.WinStep == -1) && !f.Chromosome && f.Region == "" {
 		if f.WinSize == -1 {
@@ -147,7 +148,10 @@ func ParseRead(fields []string) (read Read) {
 	}
 	chrparent := strings.Split(fields[0], "_")
 	read.Chrom = chrparent[0]
-	read.Parent = chrparent[1]
+	read.Parent = "ecoli"
+	if len(chrparent) >= 2 {
+		read.Parent = chrparent[1]
+	}
 	var err error
 	read.Pos, err = strconv.ParseInt(fields[1], 10, 64)
 	if err != nil {
@@ -217,6 +221,7 @@ func RangeBad(maxdist int64, mindist int64, pairmindist int64, selfinmindist int
 }
 
 func FprintHeader(w io.Writer, fpkm bool, readlen int64, namecol bool) {
+	fmt.Fprintf(os.Stderr, "Header namecol: %v\n", namecol)
 	fmt.Fprint(w, "chrom\tstart\tend\thit_type\talt_hit_type\thits\talt_hits\tpair_prop\talt_prop\tpair_totprop\tpair_totgoodprop\tpair_totcloseprop\twinsize\twinstep")
 	if fpkm {
 		fmt.Fprint(w, "\tpair_fpkm\talt_fpkm\tpair_prop_fpkm\talt_prop_fpkm")
@@ -228,7 +233,7 @@ func FprintHeader(w io.Writer, fpkm bool, readlen int64, namecol bool) {
 		}
 	}
 	if namecol {
-		fmt.Fprint(w, "name")
+		fmt.Fprint(w, "\tname")
 	}
 	fmt.Fprintln(w, "")
 }
