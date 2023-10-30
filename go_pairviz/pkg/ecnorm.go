@@ -1,6 +1,7 @@
 package pairviz
 
 import (
+	"math"
 	"bufio"
 	"flag"
 	"regexp"
@@ -75,26 +76,42 @@ func ParsePairvizOut(r io.Reader) *Iterator[JsonOutStat] {
 	}}
 }
 
-func AccumStats(sums *JsonOutStat, x JsonOutStat) {
-	sums.TargetHits += x.TargetHits
-	sums.AltHits += x.AltHits
-	sums.TargetProp += x.TargetProp
-	sums.AltProp += x.AltProp
-	sums.TargetPropGoodBad += x.TargetPropGoodBad
-	sums.TargetPropGood += x.TargetPropGood
-	sums.TargetPropTotal += x.TargetPropTotal
-	sums.TargetFpkm += x.TargetFpkm
-	sums.AltFpkm += x.AltFpkm
-	sums.TargetFpkmProp += x.TargetFpkmProp
-	sums.AltFpkmProp += x.AltFpkmProp
-	sums.AltOvlHits += x.AltOvlHits
-	sums.AltNonOvlHits += x.AltNonOvlHits
-	sums.AltOvlProp += x.AltOvlProp
-	sums.AltNonOvlProp += x.AltNonOvlProp
-	sums.AltOvlFpkm += x.AltOvlFpkm
-	sums.AltNonOvlFpkm += x.AltNonOvlFpkm
-	sums.AltOvlFpkmProp += x.AltOvlFpkmProp
-	sums.AltNonOvlFpkmProp += x.AltNonOvlFpkmProp
+func IsInfOrNaN(j JsonFloat) bool {
+	f := float64(j)
+	if math.IsInf(f, 0) {
+		return true
+	}
+	return math.IsNaN(f)
+}
+
+func AccumStat(sum *JsonFloat, count *JsonFloat, x JsonFloat) {
+	if IsInfOrNaN(x) {
+		return
+	}
+	*sum += x
+	(*count)++
+}
+
+func AccumStats(sums *JsonOutStat, counts *JsonOutStat, x JsonOutStat) {
+	AccumStat(&sums.TargetHits, &counts.TargetHits, x.TargetHits)
+	AccumStat(&sums.AltHits, &counts.AltHits, x.AltHits)
+	AccumStat(&sums.TargetProp, &counts.TargetProp, x.TargetProp)
+	AccumStat(&sums.AltProp, &counts.AltProp, x.AltProp)
+	AccumStat(&sums.TargetPropGoodBad, &counts.TargetPropGoodBad, x.TargetPropGoodBad)
+	AccumStat(&sums.TargetPropGood, &counts.TargetPropGood, x.TargetPropGood)
+	AccumStat(&sums.TargetPropTotal, &counts.TargetPropTotal, x.TargetPropTotal)
+	AccumStat(&sums.TargetFpkm, &counts.TargetFpkm, x.TargetFpkm)
+	AccumStat(&sums.AltFpkm, &counts.AltFpkm, x.AltFpkm)
+	AccumStat(&sums.TargetFpkmProp, &counts.TargetFpkmProp, x.TargetFpkmProp)
+	AccumStat(&sums.AltFpkmProp, &counts.AltFpkmProp, x.AltFpkmProp)
+	AccumStat(&sums.AltOvlHits, &counts.AltOvlHits, x.AltOvlHits)
+	AccumStat(&sums.AltNonOvlHits, &counts.AltNonOvlHits, x.AltNonOvlHits)
+	AccumStat(&sums.AltOvlProp, &counts.AltOvlProp, x.AltOvlProp)
+	AccumStat(&sums.AltNonOvlProp, &counts.AltNonOvlProp, x.AltNonOvlProp)
+	AccumStat(&sums.AltOvlFpkm, &counts.AltOvlFpkm, x.AltOvlFpkm)
+	AccumStat(&sums.AltNonOvlFpkm, &counts.AltNonOvlFpkm, x.AltNonOvlFpkm)
+	AccumStat(&sums.AltOvlFpkmProp, &counts.AltOvlFpkmProp, x.AltOvlFpkmProp)
+	AccumStat(&sums.AltNonOvlFpkmProp, &counts.AltNonOvlFpkmProp, x.AltNonOvlFpkmProp)
 }
 
 func DivCount(sums JsonOutStat, count float64) JsonOutStat {
@@ -123,22 +140,46 @@ func DivCount(sums JsonOutStat, count float64) JsonOutStat {
 	return out
 }
 
+func DivCounts(sums JsonOutStat, counts JsonOutStat) JsonOutStat {
+	out := sums
+	out.TargetHits = sums.TargetHits / counts.TargetHits
+	out.AltHits = sums.AltHits / counts.AltHits
+	out.TargetProp = sums.TargetProp / counts.TargetProp
+	out.AltProp = sums.AltProp / counts.AltProp
+	out.TargetPropGoodBad = sums.TargetPropGoodBad / counts.TargetPropGoodBad
+	out.TargetPropGood = sums.TargetPropGood / counts.TargetPropGood
+	out.TargetPropTotal = sums.TargetPropTotal / counts.TargetPropTotal
+	out.TargetFpkm = sums.TargetFpkm / counts.TargetFpkm
+	out.AltFpkm = sums.AltFpkm / counts.AltFpkm
+	out.TargetFpkmProp = sums.TargetFpkmProp / counts.TargetFpkmProp
+	out.AltFpkmProp = sums.AltFpkmProp / counts.AltFpkmProp
+	out.AltOvlHits = sums.AltOvlHits / counts.AltOvlHits
+	out.AltNonOvlHits = sums.AltNonOvlHits / counts.AltNonOvlHits
+	out.AltOvlProp = sums.AltOvlProp / counts.AltOvlProp
+	out.AltNonOvlProp = sums.AltNonOvlProp / counts.AltNonOvlProp
+	out.AltOvlFpkm = sums.AltOvlFpkm / counts.AltOvlFpkm
+	out.AltNonOvlFpkm = sums.AltNonOvlFpkm / counts.AltNonOvlFpkm
+	out.AltOvlFpkmProp = sums.AltOvlFpkmProp / counts.AltOvlFpkmProp
+	out.AltNonOvlFpkmProp = sums.AltNonOvlFpkmProp / counts.AltNonOvlFpkmProp
+	return out
+}
+
+
 func GetControlStatMeans(controlChr string, it Iter[JsonOutStat]) (JsonOutStat, error) {
 	var sums JsonOutStat
-	var count int64
+	var counts JsonOutStat
 
 	err := it.Iterate(func(j JsonOutStat) error {
 		if j.Chr == controlChr {
-			AccumStats(&sums, j)
-			count++
+			AccumStats(&sums, &counts, j)
 		}
 		return nil
 	})
 	if err != nil {
-		return sums, err
+		return JsonOutStat{}, err
 	}
 
-	return DivCount(sums, float64(count)), nil
+	return DivCounts(sums, counts), nil
 }
 
 func SubtractControlStat(x JsonOutStat, control JsonOutStat) JsonOutStat {
