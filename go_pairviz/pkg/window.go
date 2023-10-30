@@ -1,6 +1,8 @@
 package pairviz
 
 import (
+	"bytes"
+	"math"
 	"os"
 	"encoding/json"
 	"fmt"
@@ -216,6 +218,46 @@ func WinStats(flags Flags, r io.Reader) (stats AllWinStats) {
 	return
 }
 
+type JsonFloat float64
+
+func (j JsonFloat) MarshalJSON() ([]byte, error) {
+	f := float64(j)
+	if math.IsNaN(f) {
+		return json.Marshal("NaN")
+	}
+	if math.IsInf(f, 1) {
+		return json.Marshal("Inf")
+	}
+	if math.IsInf(f, -1) {
+		return json.Marshal("-Inf")
+	}
+	return json.Marshal(f)
+}
+
+var jsonNaN = []byte(`"NaN"`)
+var jsonInf = []byte(`"Inf"`)
+var jsonNegInf = []byte(`"-Inf"`)
+
+func (j *JsonFloat) UnmarshalJSON(p []byte) error {
+	if bytes.Compare(p, jsonNaN) == 0 {
+		*j = JsonFloat(math.NaN())
+		return nil
+	}
+	if bytes.Compare(p, jsonInf) == 0 {
+		*j = JsonFloat(math.Inf(1))
+		return nil
+	}
+	if bytes.Compare(p, jsonNegInf) == 0 {
+		*j = JsonFloat(math.Inf(-1))
+		return nil
+	}
+	err := json.Unmarshal(p, (*float64)(j))
+	if err != nil {
+		return fmt.Errorf("JsonFloat UnmarshalJSON: input %v: %w", string(p), err)
+	}
+	return nil
+}
+
 type JsonOutStat struct {
 	Genome string
 	Chr string
@@ -223,27 +265,27 @@ type JsonOutStat struct {
 	End int64
 	TargetType string
 	AltType string
-	TargetHits float64
-	AltHits float64
-	TargetProp float64
-	AltProp float64
-	TargetPropGoodBad float64
-	TargetPropGood float64
-	TargetPropTotal float64
+	TargetHits JsonFloat
+	AltHits JsonFloat
+	TargetProp JsonFloat
+	AltProp JsonFloat
+	TargetPropGoodBad JsonFloat
+	TargetPropGood JsonFloat
+	TargetPropTotal JsonFloat
 	WinSize int64
 	WinStep int64
-	TargetFpkm float64
-	AltFpkm float64
-	TargetFpkmProp float64
-	AltFpkmProp float64
-	AltOvlHits float64
-	AltNonOvlHits float64
-	AltOvlProp float64
-	AltNonOvlProp float64
-	AltOvlFpkm float64
-	AltNonOvlFpkm float64
-	AltOvlFpkmProp float64
-	AltNonOvlFpkmProp float64
+	TargetFpkm JsonFloat
+	AltFpkm JsonFloat
+	TargetFpkmProp JsonFloat
+	AltFpkmProp JsonFloat
+	AltOvlHits JsonFloat
+	AltNonOvlHits JsonFloat
+	AltOvlProp JsonFloat
+	AltNonOvlProp JsonFloat
+	AltOvlFpkm JsonFloat
+	AltNonOvlFpkm JsonFloat
+	AltOvlFpkmProp JsonFloat
+	AltNonOvlFpkmProp JsonFloat
 	Name string
 }
 
@@ -257,30 +299,30 @@ func MakeJsonOutStat(genome, chr, name string, stats AllWinStats, winsize, winst
 	j.End = (int64(index) * winstep) + winsize
 	j.TargetType = "paired"
 	j.AltType = "self"
-	j.TargetHits = float64(win.PairHits)
-	j.AltHits = float64(win.SelfHits)
-	j.TargetProp = float64(win.PairHits) / (float64(win.PairHits) + float64(win.SelfHits))
-	j.AltProp = float64(win.SelfHits) / (float64(win.PairHits) + float64(win.SelfHits))
-	j.TargetPropGoodBad = float64(win.PairHits) / (float64(stats.TotalGoodReads) + float64(stats.TotalBadReads))
-	j.TargetPropGood = float64(win.PairHits) / float64(stats.TotalGoodReads)
-	j.TargetPropTotal = float64(win.PairHits) / float64(stats.TotalReads)
+	j.TargetHits = JsonFloat(float64(win.PairHits))
+	j.AltHits = JsonFloat(float64(win.SelfHits))
+	j.TargetProp = JsonFloat(float64(win.PairHits) / (float64(win.PairHits) + float64(win.SelfHits)))
+	j.AltProp = JsonFloat(float64(win.SelfHits) / (float64(win.PairHits) + float64(win.SelfHits)))
+	j.TargetPropGoodBad = JsonFloat(float64(win.PairHits) / (float64(stats.TotalGoodReads) + float64(stats.TotalBadReads)))
+	j.TargetPropGood = JsonFloat(float64(win.PairHits) / float64(stats.TotalGoodReads))
+	j.TargetPropTotal = JsonFloat(float64(win.PairHits) / float64(stats.TotalReads))
 	j.WinSize = winsize
 	j.WinStep = winstep
 
-	j.TargetFpkm = win.PairFpkm
-	j.AltFpkm = win.SelfFpkm
-	j.TargetFpkmProp = win.PairFpkm / (win.SelfFpkm + win.PairFpkm)
-	j.AltFpkmProp = win.SelfFpkm / (win.SelfFpkm + win.PairFpkm)
+	j.TargetFpkm = JsonFloat(win.PairFpkm)
+	j.AltFpkm = JsonFloat(win.SelfFpkm)
+	j.TargetFpkmProp = JsonFloat(win.PairFpkm / (win.SelfFpkm + win.PairFpkm))
+	j.AltFpkmProp = JsonFloat(win.SelfFpkm / (win.SelfFpkm + win.PairFpkm))
 
-	j.AltOvlHits = float64(win.OvlHits)
-	j.AltNonOvlHits = float64(win.NonOvlHits)
-	j.AltOvlProp = float64(win.OvlHits) / (float64(win.OvlHits) + float64(win.NonOvlHits))
-	j.AltNonOvlProp = float64(win.NonOvlHits) / (float64(win.OvlHits) + float64(win.NonOvlHits))
+	j.AltOvlHits = JsonFloat(float64(win.OvlHits))
+	j.AltNonOvlHits = JsonFloat(float64(win.NonOvlHits))
+	j.AltOvlProp = JsonFloat(float64(win.OvlHits) / (float64(win.OvlHits) + float64(win.NonOvlHits)))
+	j.AltNonOvlProp = JsonFloat(float64(win.NonOvlHits) / (float64(win.OvlHits) + float64(win.NonOvlHits)))
 
-	j.AltOvlFpkm = win.OvlFpkm
-	j.AltNonOvlFpkm = win.NonOvlFpkm
-	j.AltOvlFpkmProp = float64(win.OvlFpkm) / (float64(win.OvlFpkm) + float64(win.NonOvlFpkm))
-	j.AltNonOvlFpkmProp = float64(win.NonOvlFpkm) / (float64(win.OvlFpkm) + float64(win.NonOvlFpkm))
+	j.AltOvlFpkm = JsonFloat(win.OvlFpkm)
+	j.AltNonOvlFpkm = JsonFloat(win.NonOvlFpkm)
+	j.AltOvlFpkmProp = JsonFloat(float64(win.OvlFpkm) / (float64(win.OvlFpkm) + float64(win.NonOvlFpkm)))
+	j.AltNonOvlFpkmProp = JsonFloat(float64(win.NonOvlFpkm) / (float64(win.OvlFpkm) + float64(win.NonOvlFpkm)))
 
 	j.Name = name
 

@@ -98,26 +98,28 @@ func AccumStats(sums *JsonOutStat, x JsonOutStat) {
 }
 
 func DivCount(sums JsonOutStat, count float64) JsonOutStat {
+	jcount := JsonFloat(count)
+
 	out := sums
-	out.TargetHits = sums.TargetHits / count
-	out.AltHits = sums.AltHits / count
-	out.TargetProp = sums.TargetProp / count
-	out.AltProp = sums.AltProp / count
-	out.TargetPropGoodBad = sums.TargetPropGoodBad / count
-	out.TargetPropGood = sums.TargetPropGood / count
-	out.TargetPropTotal = sums.TargetPropTotal / count
-	out.TargetFpkm = sums.TargetFpkm / count
-	out.AltFpkm = sums.AltFpkm / count
-	out.TargetFpkmProp = sums.TargetFpkmProp / count
-	out.AltFpkmProp = sums.AltFpkmProp / count
-	out.AltOvlHits = sums.AltOvlHits / count
-	out.AltNonOvlHits = sums.AltNonOvlHits / count
-	out.AltOvlProp = sums.AltOvlProp / count
-	out.AltNonOvlProp = sums.AltNonOvlProp / count
-	out.AltOvlFpkm = sums.AltOvlFpkm / count
-	out.AltNonOvlFpkm = sums.AltNonOvlFpkm / count
-	out.AltOvlFpkmProp = sums.AltOvlFpkmProp / count
-	out.AltNonOvlFpkmProp = sums.AltNonOvlFpkmProp / count
+	out.TargetHits = sums.TargetHits / jcount
+	out.AltHits = sums.AltHits / jcount
+	out.TargetProp = sums.TargetProp / jcount
+	out.AltProp = sums.AltProp / jcount
+	out.TargetPropGoodBad = sums.TargetPropGoodBad / jcount
+	out.TargetPropGood = sums.TargetPropGood / jcount
+	out.TargetPropTotal = sums.TargetPropTotal / jcount
+	out.TargetFpkm = sums.TargetFpkm / jcount
+	out.AltFpkm = sums.AltFpkm / jcount
+	out.TargetFpkmProp = sums.TargetFpkmProp / jcount
+	out.AltFpkmProp = sums.AltFpkmProp / jcount
+	out.AltOvlHits = sums.AltOvlHits / jcount
+	out.AltNonOvlHits = sums.AltNonOvlHits / jcount
+	out.AltOvlProp = sums.AltOvlProp / jcount
+	out.AltNonOvlProp = sums.AltNonOvlProp / jcount
+	out.AltOvlFpkm = sums.AltOvlFpkm / jcount
+	out.AltNonOvlFpkm = sums.AltNonOvlFpkm / jcount
+	out.AltOvlFpkmProp = sums.AltOvlFpkmProp / jcount
+	out.AltNonOvlFpkmProp = sums.AltNonOvlFpkmProp / jcount
 	return out
 }
 
