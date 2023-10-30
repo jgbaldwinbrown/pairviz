@@ -10,4 +10,4 @@ go build pairviz_radius.go
 cp pairviz_radius ~/mybin/pairviz_radius
 cp pairviz_radius_plot.R ~/mybin/pairviz_radius_plot
 cp pairviz_radius_plot_pretty.R ~/mybin/pairviz_radius_plot_pretty
-( cd go_pairviz && go build ) && cp go_pairviz/go_pairviz ~/mybin/go_pairviz && cp go_pairviz/go_pairviz ~/mybin/pairviz
+( cd go_pairviz/cmd && go build go_pairviz.go ) && cp go_pairviz/cmd/go_pairviz ~/mybin/go_pairviz && cp go_pairviz/cmd/go_pairviz ~/mybin/pairviz

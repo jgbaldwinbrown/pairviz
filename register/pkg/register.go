@@ -82,7 +82,10 @@ func ParseRead(fields []string) (read Read) {
 	}
 	chrparent := strings.Split(fields[0], "_")
 	read.Chrom = chrparent[0]
-	read.Parent = chrparent[1]
+	read.Parent = "ecoli"
+	if len(chrparent) >= 2 {
+		read.Parent = chrparent[1]
+	}
 	var err error
 	read.Pos, err = strconv.ParseInt(fields[1], 10, 64)
 	if err != nil {

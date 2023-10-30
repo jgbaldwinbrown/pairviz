@@ -48,21 +48,26 @@ func LinkAll(is []Input) error {
 
 func Scan(line []string, ptrs ...any) error {
 	for i, ptr := range ptrs {
-		_, e := fmt.Sscanf(line[i], "%v", ptr)
-		if e != nil {
-			return e
+		if s, ok := ptr.(*string); ok {
+			*s = line[i]
+		} else {
+			_, e := fmt.Sscanf(line[i], "%v", ptr)
+			if e != nil {
+				return e
+			}
 		}
 	}
 	return nil
 }
 
 func FindPath(id, suffix string, paths []string) (string, error) {
+	idu := id + "_"
 	for _, path := range paths {
-		if strings.Contains(path, id) && strings.Contains(path, suffix) {
+		if strings.Contains(path, idu) && strings.Contains(path, suffix) {
 			return path, nil
 		}
 	}
-	return "", fmt.Errorf("FindPath could not find %v, %v", id, suffix)
+	return "", fmt.Errorf("FindPath could not find %v, %v", idu, suffix)
 }
 
 var NameMapOld = map[string]string {
