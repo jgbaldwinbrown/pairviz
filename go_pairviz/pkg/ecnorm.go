@@ -44,7 +44,7 @@ func OpenGz(path string) (*GzReader, error) {
 	}
 	gr, e := gzip.NewReader(r)
 	if e != nil {
-		defer func() { Must(r.Close()) }
+		defer func() { Must(r.Close()) }()
 		return nil, e
 	}
 	return &GzReader{r, gr}, nil
@@ -193,7 +193,7 @@ func FullSubtractControl() {
 
 	r, e = OpenMaybeGz(*inpath)
 	Must(e)
-	defer func() { Must(r.Close()) }
+	defer func() { Must(r.Close()) }()
 
 	it = ParsePairvizOut(r)
 	subit := SubtractControlStatAll(it, cmean)
