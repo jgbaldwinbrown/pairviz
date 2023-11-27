@@ -369,7 +369,7 @@ make -j $NUM_CORES %v %v
 }
 
 func BuildParams(names []string, indirPrefix, refdirPrefix, outdirPrefix, scriptdir string) []Params {
-	re := regexp.MustCompile(`_(adult|sal)`)
+	re := regexp.MustCompile(`_(adult|sal|brain|fat)`)
 
 	var ps []Params
 	for _, name := range names {
@@ -406,6 +406,47 @@ func VerySmallParams(run string) []Params {
 
 func SmallParams(run string) []Params {
 	names := []string { "s14xw501_sal", "s14xw501_adult", "iso1xsaw_sal", "sawxw501_sal"  }
+
+	indirPrefix := "/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/hic4_final/data/21326R/"
+	refdirPrefix := "/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/hic4_final/refs/combos/"
+	outdirPrefix := "/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/hic5_final_ecoli/out/"
+	scriptdir := "scripts/"
+
+	if run == "hic4" {
+		outdirPrefix = "/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/hic4_final/out/"
+	}
+
+	return BuildParams(names, indirPrefix, refdirPrefix, outdirPrefix, scriptdir)
+}
+
+func MidParams(run string) []Params {
+	names := []string {
+		"s14xw501_sal", "s14xw501_adult", "iso1xsaw_sal", "sawxw501_sal",
+		"iso1xa4_adult", "iso1xa4_brain", "iso1xa4_fat", "iso1xa4_sal",
+		"iso1xa7_sal", "iso1xa7_adult", "m252xw501_adult", "m252xw501_sal",
+	}
+
+	indirPrefix := "/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/hic4_final/data/21326R/"
+	refdirPrefix := "/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/hic4_final/refs/combos/"
+	outdirPrefix := "/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/hic5_final_ecoli/out/"
+	scriptdir := "scripts/"
+
+	if run == "hic4" {
+		outdirPrefix = "/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/hic4_final/out/"
+	}
+
+	return BuildParams(names, indirPrefix, refdirPrefix, outdirPrefix, scriptdir)
+}
+
+func FullParams(run string) []Params {
+	names := []string {
+		"s14xw501_sal", "s14xw501_adult", "iso1xsaw_sal", "sawxw501_sal",
+		"iso1xa4_adult", "iso1xa4_brain", "iso1xa4_fat", "iso1xa4_sal",
+		"iso1xa7_sal", "iso1xa7_adult", "m252xw501_adult", "m252xw501_sal",
+		"iso1xlhr_sal", "hmrxw501_sal",
+		"a7xs14_sal", "a7xs14_adult",
+		"iso1xw501_sal", "iso1xw501_adult", "iso1xw501_brain", "iso1xw501_fat",
+	}
 
 	indirPrefix := "/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/hic4_final/data/21326R/"
 	refdirPrefix := "/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/hic4_final/refs/combos/"
@@ -573,7 +614,7 @@ func CalcSplitsFromFq(p Params) (nsplits int64, err error) {
 func main() {
 	run := flag.String("r", "", "run (try using \"hic4\")")
 	flag.Parse()
-	params := SmallParams(*run)
+	params := FullParams(*run)
 	for i, _ := range params {
 		if err := UpdateNsplits(&params[i]); err != nil {
 			panic(err)
