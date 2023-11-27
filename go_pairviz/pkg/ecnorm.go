@@ -164,22 +164,26 @@ func DivCounts(sums JsonOutStat, counts JsonOutStat) JsonOutStat {
 	return out
 }
 
-
-func GetControlStatMeans(controlChr string, it Iter[JsonOutStat]) (JsonOutStat, error) {
+func GetControlStatMeans(controlChr string, it Iter[JsonOutStat]) (control, exp JsonOutStat, err error) {
 	var sums JsonOutStat
 	var counts JsonOutStat
 
-	err := it.Iterate(func(j JsonOutStat) error {
+	var expsums JsonOutStat
+	var expcounts JsonOutStat
+
+	err = it.Iterate(func(j JsonOutStat) error {
 		if j.Chr == controlChr {
 			AccumStats(&sums, &counts, j)
+		} else {
+			AccumStats(&expsums, &expcounts, j)
 		}
 		return nil
 	})
 	if err != nil {
-		return JsonOutStat{}, err
+		return JsonOutStat{}, JsonOutStat{}, err
 	}
 
-	return DivCounts(sums, counts), nil
+	return DivCounts(sums, counts), DivCounts(expsums, expcounts), nil
 }
 
 func SubtractControlStat(x JsonOutStat, control JsonOutStat) JsonOutStat {
@@ -215,9 +219,32 @@ func SubtractControlStatAll(it Iter[JsonOutStat], control JsonOutStat) *Iterator
 	}}
 }
 
+func WriteMeansPath(path string, control, exp JsonOutStat) error {
+	h := func(e error) error {
+		return fmt.Errorf("WriteMeansPath: %w", e)
+	}
+
+	w, e := os.Create(path)
+	if e != nil {
+		return h(e)
+	}
+	defer w.Close()
+
+	enc := json.NewEncoder(w)
+
+	if e = enc.Encode(control); e != nil {
+		return h(e)
+	}
+	if e = enc.Encode(exp); e != nil {
+		return h(e)
+	}
+	return nil
+}
+
 func FullSubtractControl() {
 	controlChr := flag.String("c", "", "Chromosome to use as control (required)")
-	inpath := flag.String("i", "", "Input path (required")
+	inpath := flag.String("i", "", "Input path (default stdin)")
+	outmeanp := flag.String("mo", "", "Path to output means to (default discard)")
 	flag.Parse()
 	if *controlChr == "" {
 		panic(fmt.Errorf("missing -c"))
@@ -230,9 +257,13 @@ func FullSubtractControl() {
 	Must(e)
 
 	it := ParsePairvizOut(r)
-	cmean, e := GetControlStatMeans(*controlChr, it)
+	cmean, emean, e := GetControlStatMeans(*controlChr, it)
 	Must(r.Close())
 	Must(e)
+
+	if *outmeanp != "" {
+		WriteMeansPath(*outmeanp, cmean, emean)
+	}
 
 	r, e = OpenMaybeGz(*inpath)
 	Must(e)
