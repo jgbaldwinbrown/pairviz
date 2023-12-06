@@ -368,13 +368,24 @@ make -j $NUM_CORES %v %v
 	return nil
 }
 
+var tissueRe = regexp.MustCompile(`_(adult|sal|brain|fat)`)
+var rescueRe = regexp.MustCompile(`hmrxw501|iso1xlhr`)
+
+func GetParamRef(name string) string {
+	if rescueRe.MatchString(name) {
+		return "iso1xw501"
+	}
+	return tissueRe.ReplaceAllString(name, "")
+}
+
+var axsRe = regexp.MustCompile(`a7xs14`)
+
 func BuildParams(names []string, indirPrefix, refdirPrefix, outdirPrefix, scriptdir string) []Params {
-	re := regexp.MustCompile(`_(adult|sal|brain|fat)`)
 
 	var ps []Params
 	for _, name := range names {
-		fmt.Println("original:", name, "replaced:", re.ReplaceAllString(name, ""))
-		ref := re.ReplaceAllString(name, "")
+		ref := GetParamRef(name)
+		fmt.Println("name:", name, "ref:", ref)
 		ps = append(ps, Params {
 			Name: name,
 			Nsplits: -1,
@@ -385,6 +396,20 @@ func BuildParams(names []string, indirPrefix, refdirPrefix, outdirPrefix, script
 			Outdir: outdirPrefix + "/" + name + "_1/",
 			Scriptdir: scriptdir,
 		})
+
+		if axsRe.MatchString(name) {
+			fmt.Println("name:", name, "ref:", "iso1xw501")
+			ps = append(ps, Params {
+				Name: name,
+				Nsplits: -1,
+				LinesPerSplit: 100000000,
+				Ref: "iso1xw501",
+				Indir: indirPrefix + "/" + name + "_full/",
+				Refdir: refdirPrefix + "/" + ref + "/",
+				Outdir: outdirPrefix + "/" + name + "_iso1xw501ref_1/",
+				Scriptdir: scriptdir,
+			})
+		}
 	}
 	return ps
 }
