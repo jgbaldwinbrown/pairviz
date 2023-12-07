@@ -14,6 +14,8 @@ import (
 
 type Params struct {
 	Name string
+	SpecialName string
+	IsSpecial bool
 	Nsplits int64
 	LinesPerSplit int64
 	Ref string
@@ -212,7 +214,12 @@ func MakeMakefile(params []Params, run string) makem.MakeData {
 }
 
 func MakeSplitPath(p Params, i int64) string {
-	return fmt.Sprintf("runscripts/run_%v_split_%04d.sh", p.Name, i)
+	sname := p.Name
+	if p.IsSpecial {
+		sname = p.SpecialName
+	}
+
+	return fmt.Sprintf("runscripts/run_%v_split_%04d.sh", sname, i)
 }
 
 func MakeSplit(p Params, i int64) error {
@@ -276,7 +283,12 @@ func MakeSplits(p Params) error {
 }
 
 func MakeSplitsCluster(p Params) error {
-	spath := fmt.Sprintf("runscripts/run_%v_splits_cluster.sh", p.Name)
+	sname := p.Name
+	if p.IsSpecial {
+		sname = p.SpecialName
+	}
+
+	spath := fmt.Sprintf("runscripts/run_%v_splits_cluster.sh", sname)
 	w, err := os.Create(spath)
 	if err != nil {
 		return err
@@ -296,7 +308,12 @@ func MakeSplitsCluster(p Params) error {
 }
 
 func MakeEnds(p Params) error {
-	spath := fmt.Sprintf("runscripts/run_%v_end.sh", p.Name)
+	sname := p.Name
+	if p.IsSpecial {
+		sname = p.SpecialName
+	}
+
+	spath := fmt.Sprintf("runscripts/run_%v_end.sh", sname)
 	w, err := os.Create(spath)
 	if err != nil {
 		return err
@@ -324,14 +341,19 @@ module load python/3.10.3
 
 make -j $NUM_CORES %v
 `,
-		p.Name,
+		sname,
 		target,
 	)
 	return nil
 }
 
 func MakeStarts(p Params) error {
-	spath := fmt.Sprintf("runscripts/run_%v_start.sh", p.Name)
+	sname := p.Name
+	if p.IsSpecial {
+		sname = p.SpecialName
+	}
+
+	spath := fmt.Sprintf("runscripts/run_%v_start.sh", sname)
 
 	w, err := os.Create(spath)
 	if err != nil {
@@ -361,7 +383,7 @@ module load python/3.10.3
 
 make -j $NUM_CORES %v %v
 `,
-		p.Name,
+		sname,
 		target,
 		target2,
 	)
@@ -398,15 +420,19 @@ func BuildParams(names []string, indirPrefix, refdirPrefix, outdirPrefix, script
 		})
 
 		if axsRe.MatchString(name) {
+			ref = "iso1xw501"
+			specialname := name + "_iso1xw501ref"
 			fmt.Println("name:", name, "ref:", "iso1xw501")
 			ps = append(ps, Params {
 				Name: name,
+				SpecialName: specialname,
+				IsSpecial: true,
 				Nsplits: -1,
 				LinesPerSplit: 100000000,
 				Ref: "iso1xw501",
 				Indir: indirPrefix + "/" + name + "_full/",
 				Refdir: refdirPrefix + "/" + ref + "/",
-				Outdir: outdirPrefix + "/" + name + "_iso1xw501ref_1/",
+				Outdir: outdirPrefix + "/" + specialname + "_1/",
 				Scriptdir: scriptdir,
 			})
 		}
