@@ -26,10 +26,11 @@ func AppendSplit(out []string, s string, sep string) []string {
 
 func ReadGenos(line []string) ([]string, error) {
 	genos := line[9:]
+	// log.Println("raw genos:", genos)
 	ref := line[3]
 	seqs := append([]string{ref}, strings.Split(line[4], ",")...)
 
-	out := make([]string, len(genos))
+	out := make([]string, 0, len(genos))
 	for _, geno := range genos {
 		var seqi int
 		_, e := fmt.Sscanf(geno, "%v", &seqi)
@@ -41,6 +42,7 @@ func ReadGenos(line []string) ([]string, error) {
 		}
 		out = append(out, seqs[seqi])
 	}
+	// log.Println("ReadGenos out:", out)
 	return out, nil
 }
 
@@ -167,10 +169,7 @@ func padallns(bufs ...*[]byte) {
 }
 
 func AppendString(buf []byte, s string) []byte {
-	for _, b := range []byte(s) {
-		buf = append(buf, b)
-	}
-	return buf
+	return append(buf, []byte(s)...)
 }
 
 func chrSpan(chr string, start, end int64) fastats.ChrSpan {
@@ -204,13 +203,24 @@ func BuildChr(entry fastats.FaEntry, vcf []fastats.VcfEntry[[]string]) (fa1, fa2
 			io.WriteString(&fa2b, entry.Seq[prevpos : curpos])
 		}
 
-		fa1buf = AppendString(fa1buf, v.InfoAndSamples[0])
-		fa2buf = AppendString(fa2buf, v.InfoAndSamples[1])
+		// log.Println("fa1buf before:", fa1buf)
+		// log.Println("fa2buf before:", fa2buf)
+
+		// log.Println("v.InfoAndSamples:", v.InfoAndSamples)
+
+		fa1buf = AppendString(fa1buf[:0], v.InfoAndSamples[0])
+		fa2buf = AppendString(fa2buf[:0], v.InfoAndSamples[1])
+
+		// log.Println("fa1buf mid:", fa1buf)
+		// log.Println("fa2buf mid:", fa2buf)
 
 		padallns(&fa1buf, &fa2buf)
 
 		fa1b.Write(fa1buf)
 		fa2b.Write(fa2buf)
+
+		// log.Println("fa1buf after:", fa1buf)
+		// log.Println("fa2buf after:", fa2buf)
 
 		coord1 = append(coord1, CoordsPair {
 			chrSpan(entry.Header, curpos, curpos + int64(len(v.Ref))),
