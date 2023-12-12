@@ -71,7 +71,6 @@ def label_encode_seq(sequences: List[str]) -> Tuple[Any, Any, List[Any]]:
 		one_hot_encoded = one_hot_encoder.fit_transform(integer_encoded)
 		input_features.append(one_hot_encoded.toarray())
 
-	print("input features:", input_features)
 	input_features = np.stack(input_features)
 	return integer_encoded, one_hot_encoded, input_features
 
@@ -79,7 +78,7 @@ def label_encode(sequences1: List[str], sequences2: List[str]) -> Any:
 	integer_encoded1, one_hot_encoded1, input_features1 = label_encode_seq(sequences1)
 	integer_encoded2, one_hot_encoded2, input_features2 = label_encode_seq(sequences2)
 
-	one_hot_combo = np.stack([input_features1, input_features2], axis = 1)
+	one_hot_combo = np.stack([input_features1, input_features2], axis = 2)
 	return one_hot_combo
 
 def get_all_data(seqpath1: str, seqpath2: str, pairpath: str, col: int) -> Tuple[Any, Any]:
@@ -89,7 +88,8 @@ def get_all_data(seqpath1: str, seqpath2: str, pairpath: str, col: int) -> Tuple
 
 def build_model() -> Any:
 	model = tf.keras.models.Sequential([
-	  tf.keras.layers.Flatten(input_shape=(28, 28)),
+	  tf.keras.layers.Flatten(input_shape=(25, 2, 4)),
+	  # tf.keras.layers.Flatten(input_shape=(28, 28)),
 	  tf.keras.layers.Dense(128, activation='relu'),
 	  tf.keras.layers.Dropout(0.2),
 	  tf.keras.layers.Dense(10)
@@ -132,14 +132,14 @@ def show_first_5_prob_model_probs(probability_model, x_test):
 	print(probability_model(x_test[:5]))
 
 def split_train_vs_test(x: Any, y: Any) -> Tuple[Any, Any, Any, Any]:
-	half = len(x)
+	half = len(x) // 2
 	return (x[:half], x[half:], y[:half], y[half:])
 
 def main():
 	seqpath1: str = sys.argv[1]
 	seqpath2: str = sys.argv[2]
 	pairpath: str = sys.argv[3]
-	paircol: str = int(sys.argv[4])
+	paircol: int = int(sys.argv[4])
 
 	print("got args")
 
@@ -155,6 +155,9 @@ def main():
 
 	compile(model, loss_fn)
 	fit(model, x_train, y_train)
+	print("model:", model)
+	print("x_test:", x_test)
+	print("y_test:", y_test)
 	evaluate_after_fit(model, x_test, y_test)
 
 	print("fit and tested")
