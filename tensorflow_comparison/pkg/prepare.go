@@ -173,16 +173,36 @@ func AppendString(buf []byte, s string) []byte {
 	return buf
 }
 
-func BuildChr(entry fastats.FaEntry, vcf []fastats.VcfEntry[[]string]) (fa1, fa2 fastats.FaEntry) {
+func chrSpan(chr string, start, end int64) fastats.ChrSpan {
+	return fastats.ChrSpan{Chr: chr, Span: fastats.Span{start, end}}
+}
+
+func BuildChr(entry fastats.FaEntry, vcf []fastats.VcfEntry[[]string]) (fa1, fa2 fastats.FaEntry, coord1, coord2 []CoordsPair) {
 	var fa1b, fa2b strings.Builder
 	var fa1buf, fa2buf []byte
 
 	prevpos := int64(0)
+	prevpos1 := int64(0)
+	prevpos2 := int64(0)
 
 	for _, v := range vcf {
 		curpos := v.Start
-		io.WriteString(&fa1b, entry.Seq[prevpos : curpos - 1])
-		io.WriteString(&fa2b, entry.Seq[prevpos : curpos - 1])
+		curpos1 := prevpos1 + (curpos - prevpos)
+		curpos2 := prevpos2 + (curpos - prevpos)
+
+		coord1 = append(coord1, CoordsPair {
+			chrSpan(entry.Header, prevpos, curpos),
+			chrSpan(entry.Header, prevpos1, curpos1),
+		})
+		coord2 = append(coord2, CoordsPair {
+			chrSpan(entry.Header, prevpos, curpos),
+			chrSpan(entry.Header, prevpos2, curpos2),
+		})
+
+		if prevpos <= curpos {
+			io.WriteString(&fa1b, entry.Seq[prevpos : curpos])
+			io.WriteString(&fa2b, entry.Seq[prevpos : curpos])
+		}
 
 		fa1buf = AppendString(fa1buf, v.InfoAndSamples[0])
 		fa2buf = AppendString(fa2buf, v.InfoAndSamples[1])
@@ -191,16 +211,33 @@ func BuildChr(entry fastats.FaEntry, vcf []fastats.VcfEntry[[]string]) (fa1, fa2
 
 		fa1b.Write(fa1buf)
 		fa2b.Write(fa2buf)
-		prevpos = curpos
+
+		coord1 = append(coord1, CoordsPair {
+			chrSpan(entry.Header, curpos, curpos + int64(len(v.Ref))),
+			chrSpan(entry.Header, curpos1, curpos1 + int64(len(fa1buf))),
+		})
+		coord2 = append(coord2, CoordsPair {
+			chrSpan(entry.Header, curpos, curpos + int64(len(v.Ref))),
+			chrSpan(entry.Header, curpos2, curpos2 + int64(len(fa2buf))),
+		})
+
+		prevpos = curpos + int64(len(v.Ref))
+		prevpos1 = curpos1 + int64(len(fa1buf))
+		prevpos2 = curpos2 + int64(len(fa2buf))
 	}
 
 	fa1 = fastats.FaEntry{entry.Header, fa1b.String()}
 	fa2 = fastats.FaEntry{entry.Header, fa2b.String()}
 
-	return fa1, fa2
+	return fa1, fa2, coord1, coord2
 }
 
-func BuildFas(fa []fastats.FaEntry, vcf []fastats.VcfEntry[[]string]) (fa1, fa2 []fastats.FaEntry) {
+type CoordsPair struct {
+	Original fastats.ChrSpan
+	New fastats.ChrSpan
+}
+
+func BuildFas(fa []fastats.FaEntry, vcf []fastats.VcfEntry[[]string]) (fa1, fa2 []fastats.FaEntry, coords1, coords2 []CoordsPair) {
 	chrs := make(map[string]fastats.FaEntry, len(fa))
 	for _, entry := range fa {
 		chrs[entry.Header] = entry
@@ -217,12 +254,14 @@ func BuildFas(fa []fastats.FaEntry, vcf []fastats.VcfEntry[[]string]) (fa1, fa2 
 	}
 
 	for _, entry := range chrs {
-		fa1chr, fa2chr := BuildChr(entry, vchrs[entry.Header])
+		fa1chr, fa2chr, coord1, coord2 := BuildChr(entry, vchrs[entry.Header])
 		fa1 = append(fa1, fa1chr)
 		fa2 = append(fa2, fa2chr)
+		coords1 = append(coords1, coord1...)
+		coords2 = append(coords2, coord2...)
 	}
 
-	return fa1, fa2
+	return fa1, fa2, coords1, coords2
 }
 
 func WriteFasta(path string, it iter.Iter[fastats.FaEntry]) error {
@@ -236,6 +275,24 @@ func WriteFasta(path string, it iter.Iter[fastats.FaEntry]) error {
 
 	return it.Iterate(func(f fastats.FaEntry) error {
 		_, e := fmt.Fprintf(w, ">%v\n%v\n", f.Header, f.Seq)
+		return e
+	})
+}
+
+func WriteCoords(path string, it iter.Iter[CoordsPair]) error {
+	w, e := csvh.CreateMaybeGz(path)
+	if e != nil {
+		return e
+	}
+	defer w.Close()
+	bw := bufio.NewWriter(w)
+	defer bw.Flush()
+
+	return it.Iterate(func(c CoordsPair) error {
+		_, e := fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\n",
+			c.Original.Chr, c.Original.Start, c.Original.End,
+			c.New.Chr, c.New.Start, c.New.End,
+		)
 		return e
 	})
 }
@@ -271,12 +328,18 @@ func RunPrepFa() {
 
 	log.Printf("len(vcf): %v\n", len(vcf))
 
-	fa1, fa2 := BuildFas(fa, vcf)
+	fa1, fa2, coords1, coords2 := BuildFas(fa, vcf)
 
 	if err := WriteFasta((*outprep) + "_1.fa.gz", iter.SliceIter[fastats.FaEntry](fa1)); err != nil {
 		panic(err)
 	}
 	if err := WriteFasta((*outprep) + "_2.fa.gz", iter.SliceIter[fastats.FaEntry](fa2)); err != nil {
+		panic(err)
+	}
+	if err := WriteCoords((*outprep) + "_1_coords.bed.gz", iter.SliceIter[CoordsPair](coords1)); err != nil {
+		panic(err)
+	}
+	if err := WriteCoords((*outprep) + "_2.coords.bed.gz", iter.SliceIter[CoordsPair](coords2)); err != nil {
 		panic(err)
 	}
 
