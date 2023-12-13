@@ -307,13 +307,59 @@ func WriteCoords(path string, it iter.Iter[CoordsPair]) error {
 	})
 }
 
+func coordConv(pos int, coords []CoordsPair) int {
+	i := sort.Search(len(coords), func(i int) bool { return coords[i].Original.End > int64(pos) })
+	return pos + int(coords[i].New.Start - coords[i].Original.Start)
+}
+
+func MakeWins(fa []fastats.FaEntry, coords []CoordsPair, size int, step int, width int) *iter.Iterator[fastats.ChrSpan] {
+	return &iter.Iterator[fastats.ChrSpan]{Iteratef: func(yield func(fastats.ChrSpan) error) error {
+		chrcoords := make(map[string][]CoordsPair, len(fa))
+		for _, pair := range coords {
+			chrcoords[pair.Original.Chr] = append(chrcoords[pair.Original.Chr], pair)
+		}
+
+		half := size / 2
+		halfwidth := width / 2
+		for _, entry := range fa {
+			for mid := size / 2; mid + half < len(entry.Seq); mid += step {
+				midconv := coordConv(mid, chrcoords[entry.Header])
+				span := chrSpan(entry.Header, int64(midconv - halfwidth), int64(midconv + halfwidth))
+				e := yield(span)
+				if e != nil {
+					return e
+				}
+			}
+		}
+		return nil
+	}}
+}
+
+func FaFixedWins(fa []fastats.FaEntry, wins iter.Iter[fastats.ChrSpan]) *iter.Iterator[fastats.FaEntry] {
+	return &iter.Iterator[fastats.FaEntry]{Iteratef: func(yield func(fastats.FaEntry) error) error {
+		chrs := make(map[string]fastats.FaEntry, len(fa))
+		for _, entry := range fa {
+			chrs[entry.Header] = entry
+		}
+
+		return wins.Iterate(func(s fastats.ChrSpan) error {
+			out, err := fastats.ExtractOne(chrs[s.Chr], s.Span)
+			if err != nil {
+				return err
+			}
+			return yield(out)
+		})
+	}}
+}
+
 func RunPrepFa() {
 	fap := flag.String("fa", "", "path to .fa or .fa.gz file")
 	vcfp := flag.String("vcf", "", "path to .vcf or .vcf.gz file")
 	c0p := flag.Int("c0", 0, "first column")
 	c1p := flag.Int("c1", 1, "second column")
-	_ = flag.Int("size", 100000, "window size")
-	_ = flag.Int("step", 10000, "window step")
+	sizep := flag.Int("size", 100000, "window size")
+	stepp := flag.Int("step", 10000, "window step")
+	widthp := flag.Int("width", 90000, "portion of center of window to output")
 	outprep := flag.String("o", "out", "output prefix")
 	flag.Parse()
 
@@ -349,17 +395,20 @@ func RunPrepFa() {
 	if err := WriteCoords((*outprep) + "_1_coords.bed.gz", iter.SliceIter[CoordsPair](coords1)); err != nil {
 		panic(err)
 	}
-	if err := WriteCoords((*outprep) + "_2.coords.bed.gz", iter.SliceIter[CoordsPair](coords2)); err != nil {
+	if err := WriteCoords((*outprep) + "_2_coords.bed.gz", iter.SliceIter[CoordsPair](coords2)); err != nil {
 		panic(err)
 	}
 
-	// if err = WriteWins((*outprep) + "_1.fa.gz", FaWins(fa1, *sizep, *stepp)); err != nil {
-	// 	panic(err)
-	// }
+	wins1 := MakeWins(fa, coords1, *sizep, *stepp, *widthp)
+	wins2 := MakeWins(fa, coords2, *sizep, *stepp, *widthp)
 
-	// if err = WriteWins((*outprep) + "_2.fa.gz", FaWins(fa2, *sizep, *stepp)); err != nil {
-	// 	panic(err)
-	// }
+	if err = WriteFasta((*outprep) + "_wins_1.fa.gz", FaFixedWins(fa1, wins1)); err != nil {
+		panic(err)
+	}
+
+	if err = WriteFasta((*outprep) + "_wins_2.fa.gz", FaFixedWins(fa2, wins2)); err != nil {
+		panic(err)
+	}
 }
 
 // #CHROM  POS     ID      REF     ALT     QUAL    FILTER	iso1	a7	s14	w501	saw
