@@ -7,4 +7,5 @@ set -e
 	seq1.fa \
 	seq2.fa \
 	pairing.txt \
-	3
+	3 \
+	25

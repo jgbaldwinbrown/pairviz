@@ -68,27 +68,100 @@ def label_encode_seq(sequences: List[str]) -> Tuple[Any, Any, List[Any]]:
 	for sequence in sequences:
 		integer_encoded = integer_encoder.fit_transform(list(sequence))
 		integer_encoded = np.array(integer_encoded).reshape(-1, 1)
+		print("integer_encoded:", integer_encoded)
 		one_hot_encoded = one_hot_encoder.fit_transform(integer_encoded)
 		input_features.append(one_hot_encoded.toarray())
 
 	input_features = np.stack(input_features)
 	return integer_encoded, one_hot_encoded, input_features
 
-def label_encode(sequences1: List[str], sequences2: List[str]) -> Any:
-	integer_encoded1, one_hot_encoded1, input_features1 = label_encode_seq(sequences1)
-	integer_encoded2, one_hot_encoded2, input_features2 = label_encode_seq(sequences2)
+def enc(base: str) -> int:
+	return ["a", "t", "g", "c", "n"].index(base)
 
-	one_hot_combo = np.stack([input_features1, input_features2], axis = 2)
-	return one_hot_combo
+def label_encode_seq_v2(sequences: List[str]) -> Tuple[Any, Any, List[Any]]:
+	# The OneHotEncoder converts an array of integers to a sparse matrix where 
+	# each row corresponds to one possible value of each feature.
+	one_hot_encoder = OneHotEncoder(categories='auto')	 
+	input_features = []
+
+	for sequence in sequences:
+		# df['col1_num'] = df['col1'].apply(lambda x: ['first', 'second', 'third', 'fourth'].index(x))
+
+		integer_encoded = [enc(x) for x in list(sequence.lower())]
+		# integer_encoded = integer_encoder.fit_transform(list(sequence.lower()))
+		integer_encoded2: Any = np.array(integer_encoded).reshape(-1, 1)
+		one_hot_encoded = one_hot_encoder.fit_transform(integer_encoded2)
+		input_features.append(one_hot_encoded.toarray())
+
+	print(input_features)
+	input_features = np.stack(input_features)
+	return integer_encoded, one_hot_encoded, input_features
+
+def label_encode_seq_v3(sequences: List[str]) -> List[Any]:
+	# The OneHotEncoder converts an array of integers to a sparse matrix where 
+	# each row corresponds to one possible value of each feature.
+	one_hot_encoder = OneHotEncoder(categories=[[0], [1], [2], [3], [4]])
+	input_features = []
+
+	for sequence in sequences:
+		integer_encoded = [enc(x) for x in list(sequence.lower())]
+		# integer_encoded = integer_encoder.fit_transform(list(sequence.lower()))
+		integer_encoded2: Any = np.array(integer_encoded).reshape(-1, 1)
+
+		print("integer_encoded2:", integer_encoded2)
+		one_hot_encoded = one_hot_encoder.fit_transform(integer_encoded2)
+		input_features.append(one_hot_encoded.toarray())
+
+	print(input_features)
+	input_features = np.stack(input_features)
+	return input_features
+
+def label_encode_seq_v4(seqs1: List[str], seqs2: List[str]) -> List[Any]:
+	one_hot_encoder = OneHotEncoder(categories = ['a', 't', 'g', 'c', 'n'])
+	unencoded = []
+	for seq1, seq2 in zip(seqs1, seqs2):
+		unencoded.append([
+			one_hot_encoder.fit_transform([ [x] for x in list(seq1.lower())]),
+			one_hot_encoder.fit_transform([ [x] for x in list(seq2.lower())])
+		])
+	return np.stack(unencoded)
+
+def encodeseqs(o: Any, seq1: str, seq2: str) -> Any:
+	a1: Any = np.array(list(seq1.lower())).reshape(-1, 1)
+	a2: Any = np.array(list(seq2.lower())).reshape(-1, 1)
+
+	e1: Any = np.array(o.fit_transform(a1).todense())
+	e2: Any = np.array(o.fit_transform(a2).todense())
+
+	out: Any = np.stack([e1, e2], axis = 1)
+	return out
+
+def label_encode_seq_v5(seqs1: List[str], seqs2: List[str]) -> List[Any]:
+	o = OneHotEncoder(categories = [['a', 't', 'g', 'c', 'n']])
+	unstacked = []
+	unstacked = [encodeseqs(o, x, y) for x, y in zip(seqs1, seqs2)]
+	out = np.stack(unstacked, axis = 0)
+	return out
+
+def label_encode(sequences1: List[str], sequences2: List[str]) -> Any:
+	# integer_encoded1, one_hot_encoded1, input_features1 = label_encode_seq_v2(sequences1)
+	# integer_encoded2, one_hot_encoded2, input_features2 = label_encode_seq_v2(sequences2)
+	# label_encode_seq(sequences1)
+
+	# one_hot_combo = np.stack([input_features1, input_features2], axis = 2)
+	# return one_hot_combo
+
+	return label_encode_seq_v5(sequences1, sequences2)
+
 
 def get_all_data(seqpath1: str, seqpath2: str, pairpath: str, col: int) -> Tuple[Any, Any]:
 	seq1, seq2, pairs = get_seqs_and_pair(seqpath1, seqpath2, pairpath, col)
 	onehot = label_encode(seq1, seq2)
 	return (onehot, pairs)
 
-def build_model() -> Any:
+def build_model(length: int) -> Any:
 	model = tf.keras.models.Sequential([
-	  tf.keras.layers.Flatten(input_shape=(25, 2, 4)),
+	  tf.keras.layers.Flatten(input_shape=(length, 2, 5)),
 	  # tf.keras.layers.Flatten(input_shape=(28, 28)),
 	  tf.keras.layers.Dense(128, activation='relu'),
 	  tf.keras.layers.Dropout(0.2),
@@ -140,6 +213,7 @@ def main():
 	seqpath2: str = sys.argv[2]
 	pairpath: str = sys.argv[3]
 	paircol: int = int(sys.argv[4])
+	length: int = int(sys.argv[5])
 
 	print("got args")
 
@@ -148,7 +222,7 @@ def main():
 
 	print("got data")
 
-	model = build_model()
+	model = build_model(length)
 	loss_fn = get_loss_fn()
 
 	print("build model and loss")

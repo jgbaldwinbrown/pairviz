@@ -176,6 +176,11 @@ func chrSpan(chr string, start, end int64) fastats.ChrSpan {
 	return fastats.ChrSpan{Chr: chr, Span: fastats.Span{start, end}}
 }
 
+// to fix:
+// single bases sometimes duplicated when unused alt allele is an n
+
+// not printing after last vcf polymorphism
+
 func BuildChr(entry fastats.FaEntry, vcf []fastats.VcfEntry[[]string]) (fa1, fa2 fastats.FaEntry, coord1, coord2 []CoordsPair) {
 	var fa1b, fa2b strings.Builder
 	var fa1buf, fa2buf []byte
@@ -189,6 +194,17 @@ func BuildChr(entry fastats.FaEntry, vcf []fastats.VcfEntry[[]string]) (fa1, fa2
 		curpos1 := prevpos1 + (curpos - prevpos)
 		curpos2 := prevpos2 + (curpos - prevpos)
 
+		if curpos < prevpos {
+			continue
+		}
+		io.WriteString(&fa1b, entry.Seq[prevpos : curpos])
+		io.WriteString(&fa2b, entry.Seq[prevpos : curpos])
+
+		// if prevpos <= curpos {
+		// 	io.WriteString(&fa1b, entry.Seq[prevpos : curpos])
+		// 	io.WriteString(&fa2b, entry.Seq[prevpos : curpos])
+		// }
+
 		coord1 = append(coord1, CoordsPair {
 			chrSpan(entry.Header, prevpos, curpos),
 			chrSpan(entry.Header, prevpos1, curpos1),
@@ -197,11 +213,6 @@ func BuildChr(entry fastats.FaEntry, vcf []fastats.VcfEntry[[]string]) (fa1, fa2
 			chrSpan(entry.Header, prevpos, curpos),
 			chrSpan(entry.Header, prevpos2, curpos2),
 		})
-
-		if prevpos <= curpos {
-			io.WriteString(&fa1b, entry.Seq[prevpos : curpos])
-			io.WriteString(&fa2b, entry.Seq[prevpos : curpos])
-		}
 
 		// log.Println("fa1buf before:", fa1buf)
 		// log.Println("fa2buf before:", fa2buf)
@@ -234,6 +245,22 @@ func BuildChr(entry fastats.FaEntry, vcf []fastats.VcfEntry[[]string]) (fa1, fa2
 		prevpos = curpos + int64(len(v.Ref))
 		prevpos1 = curpos1 + int64(len(fa1buf))
 		prevpos2 = curpos2 + int64(len(fa2buf))
+	}
+
+	if prevpos < int64(len(entry.Seq)) {
+		io.WriteString(&fa1b, entry.Seq[prevpos : len(entry.Seq)])
+		io.WriteString(&fa2b, entry.Seq[prevpos : len(entry.Seq)])
+
+		added := int64(len(entry.Seq)) - prevpos
+
+		coord1 = append(coord1, CoordsPair {
+			chrSpan(entry.Header, prevpos, int64(len(entry.Seq))),
+			chrSpan(entry.Header, prevpos1, prevpos1 + added),
+		})
+		coord2 = append(coord2, CoordsPair {
+			chrSpan(entry.Header, prevpos, int64(len(entry.Seq))),
+			chrSpan(entry.Header, prevpos2, prevpos2 + added),
+		})
 	}
 
 	fa1 = fastats.FaEntry{entry.Header, fa1b.String()}
@@ -284,7 +311,7 @@ func WriteFasta(path string, it iter.Iter[fastats.FaEntry]) error {
 	defer bw.Flush()
 
 	return it.Iterate(func(f fastats.FaEntry) error {
-		_, e := fmt.Fprintf(w, ">%v\n%v\n", f.Header, f.Seq)
+		_, e := fmt.Fprintf(bw, ">%v\n%v\n", f.Header, f.Seq)
 		return e
 	})
 }
@@ -299,7 +326,7 @@ func WriteCoords(path string, it iter.Iter[CoordsPair]) error {
 	defer bw.Flush()
 
 	return it.Iterate(func(c CoordsPair) error {
-		_, e := fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\n",
+		_, e := fmt.Fprintf(bw, "%v\t%v\t%v\t%v\t%v\t%v\n",
 			c.Original.Chr, c.Original.Start, c.Original.End,
 			c.New.Chr, c.New.Start, c.New.End,
 		)
