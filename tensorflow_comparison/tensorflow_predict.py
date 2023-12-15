@@ -6,6 +6,7 @@ import numpy as np
 from typing import List, Set, Dict, Tuple, Iterator, Union, Optional, Callable, Any, IO
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 import tensorflow as tf
+import random
 
 class FaEntry:
 	def __init__(self, header: str, seq: str):
@@ -46,7 +47,10 @@ def get_pair(path: str, col: int) -> Any:
 			if len(sl) <= col:
 				raise Exception("len(sl) <= col")
 			out.append(float(sl[col]))
-	return np.array(out)
+	return out
+
+def arrayify_pairs(pairs: List[float]) -> Any:
+	return np.array(pairs)
 
 def get_seqs_and_pair(fapath1: str, fapath2: str, pairpath: str, paircol: int) -> Tuple[List[str], List[str], Any]:
 	with open(fapath1, "r") as r:
@@ -138,23 +142,18 @@ def encodeseqs(o: Any, seq1: str, seq2: str) -> Any:
 
 def label_encode_seq_v5(seqs1: List[str], seqs2: List[str]) -> List[Any]:
 	o = OneHotEncoder(categories = [['a', 't', 'g', 'c', 'n']])
-	unstacked = []
 	unstacked = [encodeseqs(o, x, y) for x, y in zip(seqs1, seqs2)]
 	out = np.stack(unstacked, axis = 0)
 	return out
 
-def label_encode(sequences1: List[str], sequences2: List[str]) -> Any:
-	# integer_encoded1, one_hot_encoded1, input_features1 = label_encode_seq_v2(sequences1)
-	# integer_encoded2, one_hot_encoded2, input_features2 = label_encode_seq_v2(sequences2)
-	# label_encode_seq(sequences1)
+def stack_encoded_v5(unstacked: List[Any]) -> Any:
+	return np.stack(unstacked, axis = 0)
 
-	# one_hot_combo = np.stack([input_features1, input_features2], axis = 2)
-	# return one_hot_combo
-
+def label_encode(sequences1: List[str], sequences2: List[str]) -> List[Any]:
 	return label_encode_seq_v5(sequences1, sequences2)
 
 
-def get_all_data(seqpath1: str, seqpath2: str, pairpath: str, col: int) -> Tuple[Any, Any]:
+def get_all_data(seqpath1: str, seqpath2: str, pairpath: str, col: int) -> Tuple[List[Any], Any]:
 	seq1, seq2, pairs = get_seqs_and_pair(seqpath1, seqpath2, pairpath, col)
 	onehot = label_encode(seq1, seq2)
 	return (onehot, pairs)
@@ -204,6 +203,20 @@ def make_prob_model(model):
 def show_first_5_prob_model_probs(probability_model, x_test):
 	print(probability_model(x_test[:5]))
 
+def shuf(x: List[Any], y: List[float]) -> Tuple[List[Any], List[Any]]:
+	# z = []
+	# for xarg, yarg in zip(x, y):
+	# 	z.append((xarg, yarg))
+	z = list(zip(x, y))
+	random.shuffle(z)
+
+	x2: List[Any] = []
+	y2: List[float] = []
+	for val in z:
+		x2.append(val[0])
+		y2.append(val[1])
+	return (x2, y2)
+
 def split_train_vs_test(x: Any, y: Any) -> Tuple[Any, Any, Any, Any]:
 	half = len(x) // 2
 	return (x[:half], x[half:], y[:half], y[half:])
@@ -215,17 +228,14 @@ def main():
 	paircol: int = int(sys.argv[4])
 	length: int = int(sys.argv[5])
 
-	print("got args")
-
 	x, y = get_all_data(seqpath1, seqpath2, pairpath, paircol)
-	x_train, x_test, y_train, y_test = split_train_vs_test(x, y)
-
-	print("got data")
+	x, y = shuf(x, y)
+	x2 = stack_encoded_v5(x)
+	y2 = arrayify_pairs(y)
+	x_train, x_test, y_train, y_test = split_train_vs_test(x2, y2)
 
 	model = build_model(length)
 	loss_fn = get_loss_fn()
-
-	print("build model and loss")
 
 	compile(model, loss_fn)
 	fit(model, x_train, y_train)
@@ -234,12 +244,8 @@ def main():
 	print("y_test:", y_test)
 	evaluate_after_fit(model, x_test, y_test)
 
-	print("fit and tested")
-
 	prob_model = make_prob_model(model)
-	print("made prob")
 	show_first_5_prob_model_probs(prob_model, x_test)
-	print("printed")
 
 if __name__ == "__main__":
 	main()
