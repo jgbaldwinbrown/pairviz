@@ -370,6 +370,10 @@ func FaFixedWins(fa []fastats.FaEntry, wins iter.Iter[fastats.ChrSpan]) *iter.It
 		}
 
 		return wins.Iterate(func(s fastats.ChrSpan) error {
+			if s.Span.Start < 0 || s.Span.End > int64(len(chrs[s.Chr].Seq)) {
+				log.Printf("Trying to extract win out of bounds; chr: %v; chrlen: %v; span: %v\n", s.Chr, len(chrs[s.Chr].Seq), s.Span)
+				return nil
+			}
 			out, err := fastats.ExtractOne(chrs[s.Chr], s.Span)
 			if err != nil {
 				return err
@@ -379,32 +383,50 @@ func FaFixedWins(fa []fastats.FaEntry, wins iter.Iter[fastats.ChrSpan]) *iter.It
 	}}
 }
 
-func RunPrepFa() {
-	fap := flag.String("fa", "", "path to .fa or .fa.gz file")
-	vcfp := flag.String("vcf", "", "path to .vcf or .vcf.gz file")
-	c0p := flag.Int("c0", 0, "first column")
-	c1p := flag.Int("c1", 1, "second column")
-	sizep := flag.Int("size", 100000, "window size")
-	stepp := flag.Int("step", 10000, "window step")
-	widthp := flag.Int("width", 90000, "portion of center of window to output")
-	outprep := flag.String("o", "out", "output prefix")
+type PrepFaFlags struct {
+	Fa string
+	Vcf string
+	C0 int
+	C1 int
+	Size int
+	Step int
+	Width int
+	Outpre string
+}
+
+func GetPrepFaFlags() (PrepFaFlags, error) {
+	var f PrepFaFlags
+
+	flag.StringVar(&f.Fa, "fa", "", "path to .fa or .fa.gz file")
+	flag.StringVar(&f.Vcf, "vcf", "", "path to .vcf or .vcf.gz file")
+	flag.IntVar(&f.C0, "c0", 0, "first column")
+	flag.IntVar(&f.C1, "c1", 1, "second column")
+	flag.IntVar(&f.Size, "size", 100000, "window size")
+	flag.IntVar(&f.Step, "step", 10000, "window step")
+	flag.IntVar(&f.Width, "width", 90000, "portion of center of window to output")
+	flag.StringVar(&f.Outpre, "o", "out", "output prefix")
+
 	flag.Parse()
 
-	if *fap == "" {
+	if f.Fa == "" {
 		panic(fmt.Errorf("mising -fa"))
 	}
-	if *vcfp == "" {
+	if f.Vcf == "" {
 		panic(fmt.Errorf("missing -vcf"))
 	}
 
-	fa, err := CollectFa(*fap)
+	return f, nil
+}
+
+func PrepFa(f PrepFaFlags) error {
+	fa, err := CollectFa(f.Fa)
 	if err != nil {
 		panic(err)
 	}
 
 	log.Printf("len(fa): %v\n", len(fa))
 
-	_, vcf, err := CollectVCF(*vcfp, *c0p, *c1p)
+	_, vcf, err := CollectVCF(f.Vcf, f.C0, f.C1)
 	if err != nil {
 		panic(err)
 	}
@@ -413,28 +435,42 @@ func RunPrepFa() {
 
 	fa1, fa2, coords1, coords2 := BuildFas(fa, vcf)
 
-	if err := WriteFasta((*outprep) + "_1.fa.gz", iter.SliceIter[fastats.FaEntry](fa1)); err != nil {
+	if err := WriteFasta((f.Outpre) + "_1.fa.gz", iter.SliceIter[fastats.FaEntry](fa1)); err != nil {
 		panic(err)
 	}
-	if err := WriteFasta((*outprep) + "_2.fa.gz", iter.SliceIter[fastats.FaEntry](fa2)); err != nil {
+	if err := WriteFasta((f.Outpre) + "_2.fa.gz", iter.SliceIter[fastats.FaEntry](fa2)); err != nil {
 		panic(err)
 	}
-	if err := WriteCoords((*outprep) + "_1_coords.bed.gz", iter.SliceIter[CoordsPair](coords1)); err != nil {
+	if err := WriteCoords((f.Outpre) + "_1_coords.bed.gz", iter.SliceIter[CoordsPair](coords1)); err != nil {
 		panic(err)
 	}
-	if err := WriteCoords((*outprep) + "_2_coords.bed.gz", iter.SliceIter[CoordsPair](coords2)); err != nil {
-		panic(err)
-	}
-
-	wins1 := MakeWins(fa, coords1, *sizep, *stepp, *widthp)
-	wins2 := MakeWins(fa, coords2, *sizep, *stepp, *widthp)
-
-	if err = WriteFasta((*outprep) + "_wins_1.fa.gz", FaFixedWins(fa1, wins1)); err != nil {
+	if err := WriteCoords((f.Outpre) + "_2_coords.bed.gz", iter.SliceIter[CoordsPair](coords2)); err != nil {
 		panic(err)
 	}
 
-	if err = WriteFasta((*outprep) + "_wins_2.fa.gz", FaFixedWins(fa2, wins2)); err != nil {
+	wins1 := MakeWins(fa, coords1, f.Size, f.Step, f.Width)
+	wins2 := MakeWins(fa, coords2, f.Size, f.Step, f.Width)
+
+	if err = WriteFasta((f.Outpre) + "_wins_1.fa.gz", FaFixedWins(fa1, wins1)); err != nil {
 		panic(err)
+	}
+
+	if err = WriteFasta((f.Outpre) + "_wins_2.fa.gz", FaFixedWins(fa2, wins2)); err != nil {
+		panic(err)
+	}
+
+	return nil
+}
+
+func RunPrepFa() {
+	flags, e := GetPrepFaFlags()
+	if e != nil {
+		panic(e)
+	}
+
+	e = PrepFa(flags)
+	if e != nil {
+		panic(e)
 	}
 }
 

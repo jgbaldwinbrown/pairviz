@@ -174,34 +174,48 @@ func WriteBed(path string, bed iter.Iter[fastats.BedEntry[[]string]]) error {
 	})
 }
 
-func RunCleanup() {
-	fa1p := flag.String("fa1", "", "path to .fa or .fa.gz file")
-	fa2p := flag.String("fa2", "", "path to .fa or .fa.gz file")
-	bedp := flag.String("bed", "", "path to .bed or .bed.gz file")
-	outprep := flag.String("o", "out", "output prefix")
-	parentp := flag.String("p", "", "parent to keep")
+type CleanupFlags struct {
+	Fa1 string
+	Fa2 string
+	Bed string
+	Outpre string
+	Parent string
+}
+
+func GetCleanupFlags() (CleanupFlags, error) {
+	var f CleanupFlags
+
+	flag.StringVar(&f.Fa1, "fa1", "", "path to .fa or .fa.gz file")
+	flag.StringVar(&f.Fa2, "fa2", "", "path to .fa or .fa.gz file")
+	flag.StringVar(&f.Bed, "bed", "", "path to .bed or .bed.gz file")
+	flag.StringVar(&f.Outpre, "o", "out", "output prefix")
+	flag.StringVar(&f.Parent, "p", "", "parent to keep")
 	flag.Parse()
 
-	if *fa1p == "" {
+	if f.Fa1 == "" {
 		panic(fmt.Errorf("mising -fa1"))
 	}
-	if *fa2p == "" {
+	if f.Fa2 == "" {
 		panic(fmt.Errorf("mising -fa2"))
 	}
-	if *bedp == "" {
+	if f.Bed == "" {
 		panic(fmt.Errorf("missing -bed"))
 	}
-	if *parentp == "" {
+	if f.Parent == "" {
 		panic(fmt.Errorf("missing -p"))
 	}
 
-	fa1, e := CollectFa(*fa1p)
+	return f, nil
+}
+
+func Cleanup(f CleanupFlags) error {
+	fa1, e := CollectFa(f.Fa1)
 	if e != nil {
 		panic(e)
 	}
 	SortFa(fa1)
 
-	fa2, e := CollectFa(*fa2p)
+	fa2, e := CollectFa(f.Fa2)
 	if e != nil {
 		panic(e)
 	}
@@ -210,12 +224,12 @@ func RunCleanup() {
 	}
 	SortFa(fa2)
 
-	bed, e := CollectBedWithHeader(*bedp)
+	bed, e := CollectBedWithHeader(f.Bed)
 	if e != nil {
 		panic(e)
 	}
 
-	pbed := FilterChrParent[[]string](*parentp, iter.SliceIter[fastats.BedEntry[[]string]](bed))
+	pbed := FilterChrParent[[]string](f.Parent, iter.SliceIter[fastats.BedEntry[[]string]](bed))
 	bed, e = iter.Collect[fastats.BedEntry[[]string]](StripChrParent[[]string](pbed))
 	if e != nil {
 		panic(e)
@@ -229,15 +243,27 @@ func RunCleanup() {
 	log.Println("set:", set)
 
 	bedkept := KeepBedMatches[[]string](set, iter.SliceIter[fastats.BedEntry[[]string]](bed))
-	if e := WriteBed(*outprep + ".bed.gz", bedkept); e != nil {
+	if e := WriteBed(f.Outpre + ".bed.gz", bedkept); e != nil {
 		panic(e)
 	}
 
-	if e := WriteFasta(*outprep + "_1.fa.gz", iter.SliceIter[fastats.FaEntry](fa1)); e != nil {
+	if e := WriteFasta(f.Outpre + "_1.fa.gz", iter.SliceIter[fastats.FaEntry](fa1)); e != nil {
 		panic(e)
 	}
-	if e := WriteFasta(*outprep + "_2.fa.gz", iter.SliceIter[fastats.FaEntry](fa2)); e != nil {
+	if e := WriteFasta(f.Outpre + "_2.fa.gz", iter.SliceIter[fastats.FaEntry](fa2)); e != nil {
 		panic(e)
 	}
 
+	return nil
+}
+
+func RunCleanup() {
+	flags, e := GetCleanupFlags()
+	if e != nil {
+		panic(e)
+	}
+	e = Cleanup(flags)
+	if e != nil {
+		panic(e)
+	}
 }
