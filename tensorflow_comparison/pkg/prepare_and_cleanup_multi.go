@@ -13,6 +13,7 @@ import (
 	"os"
 	"io"
 	"log"
+	"flag"
 )
 
 type TensorflowFlags struct {
@@ -40,6 +41,7 @@ type Args struct {
 	Outpre string
 	Threads int
 	Paircol int
+	PredictOnly bool
 }
 
 func (a Args) CrossPrepFlags(i int) PrepFaFlags {
@@ -200,27 +202,29 @@ func TensorflowPredict(ctx context.Context, w io.Writer, f TensorflowFlags) erro
 // pigz -p 8 > predicted.txt.gz
 
 func Join(ctx context.Context, args Args) error {
-	fa1s := make([]string, 0, len(args.Crosses))
-	fa2s := make([]string, 0, len(args.Crosses))
-	beds := make([]string, 0, len(args.Crosses))
-	for i, _ := range args.Crosses {
-		cf := args.CrossCleanupFlags(i)
-		fa1s = append(fa1s, cf.Outpre + "_1.fa.gz")
-		fa2s = append(fa2s, cf.Outpre + "_2.fa.gz")
-		beds = append(beds, cf.Outpre + ".bed.gz")
-	}
+	if !args.PredictOnly {
+		fa1s := make([]string, 0, len(args.Crosses))
+		fa2s := make([]string, 0, len(args.Crosses))
+		beds := make([]string, 0, len(args.Crosses))
+		for i, _ := range args.Crosses {
+			cf := args.CrossCleanupFlags(i)
+			fa1s = append(fa1s, cf.Outpre + "_1.fa.gz")
+			fa2s = append(fa2s, cf.Outpre + "_2.fa.gz")
+			beds = append(beds, cf.Outpre + ".bed.gz")
+		}
 
-	fa1path := args.Outpre + "_1.fa"
-	fa2path := args.Outpre + "_2.fa"
-	bedpath := args.Outpre + ".bed"
-	if e := CatPaths(fa1path, fa1s...); e != nil {
-		return e
-	}
-	if e := CatPaths(fa2path, fa2s...); e != nil {
-		return e
-	}
-	if e := CatPaths(bedpath, beds...); e != nil {
-		return e
+		fa1path := args.Outpre + "_1.fa"
+		fa2path := args.Outpre + "_2.fa"
+		bedpath := args.Outpre + ".bed"
+		if e := CatPaths(fa1path, fa1s...); e != nil {
+			return e
+		}
+		if e := CatPaths(fa2path, fa2s...); e != nil {
+			return e
+		}
+		if e := CatPaths(bedpath, beds...); e != nil {
+			return e
+		}
 	}
 
 	targ := args.TensorflowArgs()
@@ -243,17 +247,26 @@ func GetArgs(r io.Reader) (Args, error) {
 }
 
 func RunPrepAndClean() {
+	predictOnlyp := flag.Bool("p", false, "Only run prediction, assume setup is already complete")
+	flag.Parse()
+
 	args, e := GetArgs(os.Stdin)
 	if e != nil {
 		log.Fatal(e)
+	}
+
+	if *predictOnlyp {
+		args.PredictOnly = true
 	}
 
 	ctx, closef := context.WithCancel(context.Background())
 	sigend := StartSignalhandler(closef)
 	defer sigend()
 
-	if e = RunSeparates(ctx, args); e != nil {
-		log.Fatal(e)
+	if !args.PredictOnly {
+		if e = RunSeparates(ctx, args); e != nil {
+			log.Fatal(e)
+		}
 	}
 
 	if e = Join(ctx, args); e != nil {

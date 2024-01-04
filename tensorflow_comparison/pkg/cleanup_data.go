@@ -130,6 +130,34 @@ func KeepBedMatches[T any](css map[string]int, it iter.Iter[fastats.BedEntry[T]]
 	}}
 }
 
+func KeepFaMatches(css map[string]int, it iter.Iter[fastats.FaEntry]) *iter.Iterator[fastats.FaEntry] {
+	counts := map[string]int{}
+	for chr, _ := range css {
+		counts[chr] = 0
+	}
+
+	return &iter.Iterator[fastats.FaEntry]{Iteratef: func(yield func(fastats.FaEntry) error) error {
+		return it.Iterate(func(b fastats.FaEntry) error {
+			facs, err := GetFaChrSpan(b)
+			if err != nil {
+				return err
+			}
+			fachr := facs.Chr
+
+			if count, ok := counts[fachr]; ok {
+				log.Printf("ok\n")
+				oknum := count < css[fachr]
+				counts[fachr]++
+				log.Printf("count: %v; css[fachr]: %v; oknum: %v; b: %v\n", count, css[fachr], oknum, b)
+				if oknum {
+					return yield(b)
+				}
+			}
+			return nil
+		})
+	}}
+}
+
 func CollectBedWithHeader(path string) ([]fastats.BedEntry[[]string], error) {
 	r, e := csvh.OpenMaybeGz(path)
 	if e != nil {
@@ -157,6 +185,16 @@ func FaChrSpanSet(it iter.Iter[fastats.FaEntry]) (map[string]int, error) {
 	})
 
 	return m, err
+}
+
+func BedSet[T any](it iter.Iter[fastats.BedEntry[T]]) map[string]int {
+	m := map[string]int{}
+	_ = it.Iterate(func(f fastats.BedEntry[T]) error {
+		m[f.Chr]++
+		return nil
+	})
+
+	return m
 }
 
 func WriteBed(path string, bed iter.Iter[fastats.BedEntry[[]string]]) error {
@@ -242,15 +280,23 @@ func Cleanup(f CleanupFlags) error {
 	SortBed(bed)
 	log.Println("set:", set)
 
-	bedkept := KeepBedMatches[[]string](set, iter.SliceIter[fastats.BedEntry[[]string]](bed))
-	if e := WriteBed(f.Outpre + ".bed.gz", bedkept); e != nil {
+	bedkept, e := iter.Collect[fastats.BedEntry[[]string]](KeepBedMatches[[]string](set, iter.SliceIter[fastats.BedEntry[[]string]](bed)))
+	if e != nil {
+		panic(e)
+	}
+	if e := WriteBed(f.Outpre + ".bed.gz", iter.SliceIter[fastats.BedEntry[[]string]](bedkept)); e != nil {
 		panic(e)
 	}
 
-	if e := WriteFasta(f.Outpre + "_1.fa.gz", iter.SliceIter[fastats.FaEntry](fa1)); e != nil {
+	bedset := BedSet[[]string](iter.SliceIter[fastats.BedEntry[[]string]](bedkept))
+
+	fa1kept := KeepFaMatches(bedset, iter.SliceIter[fastats.FaEntry](fa1))
+	if e := WriteFasta(f.Outpre + "_1.fa.gz", fa1kept); e != nil {
 		panic(e)
 	}
-	if e := WriteFasta(f.Outpre + "_2.fa.gz", iter.SliceIter[fastats.FaEntry](fa2)); e != nil {
+
+	fa2kept := KeepFaMatches(bedset, iter.SliceIter[fastats.FaEntry](fa2))
+	if e := WriteFasta(f.Outpre + "_2.fa.gz", fa2kept); e != nil {
 		panic(e)
 	}
 
