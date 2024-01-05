@@ -158,13 +158,58 @@ def get_all_data(seqpath1: str, seqpath2: str, pairpath: str, col: int) -> Tuple
 	onehot = label_encode(seq1, seq2)
 	return (onehot, pairs)
 
+def build_model_unedited(length: int) -> Any:
+	model = tf.keras.models.Sequential([
+		tf.keras.layers.Flatten(input_shape=(length, 2, 5)),
+		# tf.keras.layers.Flatten(input_shape=(28, 28)),
+		tf.keras.layers.Dense(128, activation='relu'),
+		tf.keras.layers.Dropout(0.2),
+
+		# tf.keras.layers.Dense(10)
+		tf.keras.layers.Dense(1, activation = 'linear')
+	])
+	return model
+
+def build_model_conv(length: int) -> Any:
+	model = tf.keras.models.Sequential([
+		tf.keras.layers.Conv1D(32, kernel_size = 2, strides = 3, input_shape = (length, 2, 5)),
+		tf.keras.layers.Flatten(),
+
+		tf.keras.layers.Dense(128, activation='relu'),
+		tf.keras.layers.Dense(32, activation='softplus'),
+
+		tf.keras.layers.Dropout(0.2),
+
+		# tf.keras.layers.Dense(10)
+		tf.keras.layers.Dense(1, activation = 'linear')
+	])
+	return model
+
+def build_model_lstm(length: int) -> Any:
+	model = tf.keras.models.Sequential([
+		tf.keras.layers.LSTM(64, input_shape = (length, 2, 5)),
+		tf.keras.layers.Flatten(),
+
+		tf.keras.layers.Dense(128, activation='relu'),
+		tf.keras.layers.Dense(32, activation='softplus'),
+
+		tf.keras.layers.Dropout(0.2),
+
+		# tf.keras.layers.Dense(10)
+		tf.keras.layers.Dense(1, activation = 'linear')
+	])
+	return model
+
 def build_model(length: int) -> Any:
 	model = tf.keras.models.Sequential([
-	  tf.keras.layers.Flatten(input_shape=(length, 2, 5)),
-	  # tf.keras.layers.Flatten(input_shape=(28, 28)),
-	  tf.keras.layers.Dense(128, activation='relu'),
-	  tf.keras.layers.Dropout(0.2),
-	  tf.keras.layers.Dense(10)
+		tf.keras.layers.Flatten(input_shape=(length, 2, 5)),
+		# tf.keras.layers.Flatten(input_shape=(28, 28)),
+		tf.keras.layers.Dense(128, activation='relu'),
+		tf.keras.layers.Dense(32, activation='softplus'),
+		tf.keras.layers.Dropout(0.2),
+
+		# tf.keras.layers.Dense(10)
+		tf.keras.layers.Dense(1, activation = 'linear')
 	])
 	return model
 
@@ -179,24 +224,34 @@ def get_loss_fn():
 	loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
 	return loss_fn
 
+def get_loss_fn_mse():
+	return "mse"
+
 def measure_loss(loss_fn, y_train, predictions):
 	return loss_fn(y_train[:1], predictions).numpy()
 
+def compile_unedited(model, loss_fn):
+	model.compile(optimizer='adam',
+			loss=loss_fn,
+			metrics=['accuracy'])
+
 def compile(model, loss_fn):
 	model.compile(optimizer='adam',
-		      loss=loss_fn,
-		      metrics=['accuracy'])
+			loss=loss_fn)
 
 def fit(model, x_train, y_train):
 	model.fit(x_train, y_train, epochs=5)
 
+def fitbig(model, x_train, y_train):
+	model.fit(x_train, y_train, epochs=5, verbose = 0)
+
 def evaluate_after_fit(model, x_test, y_test):
-	print(model.evaluate(x_test,  y_test, verbose=2))
+	print(model.evaluate(x_test,	y_test, verbose=2))
 
 def make_prob_model(model):
 	probability_model = tf.keras.Sequential([
-	  model,
-	  tf.keras.layers.Softmax()
+		model,
+		tf.keras.layers.Softmax()
 	])
 	return probability_model
 
@@ -221,7 +276,7 @@ def split_train_vs_test(x: Any, y: Any) -> Tuple[Any, Any, Any, Any]:
 	half = len(x) // 2
 	return (x[:half], x[half:], y[:half], y[half:])
 
-def main():
+def main() -> None:
 	seqpath1: str = sys.argv[1]
 	seqpath2: str = sys.argv[2]
 	pairpath: str = sys.argv[3]
@@ -235,10 +290,14 @@ def main():
 	x_train, x_test, y_train, y_test = split_train_vs_test(x2, y2)
 
 	model = build_model(length)
-	loss_fn = get_loss_fn()
+	loss_fn = get_loss_fn_mse()
+	# loss_fn = get_loss_fn()
 
 	compile(model, loss_fn)
-	fit(model, x_train, y_train)
+	print("x_train:", x_train)
+	print("y_train:", y_train)
+	# fit(model, x_train, y_train)
+	fitbig(model, x_train, y_train)
 	print("model:", model)
 	print("x_test:", x_test)
 	print("y_test:", y_test)
@@ -246,6 +305,11 @@ def main():
 
 	prob_model = make_prob_model(model)
 	show_first_5_prob_model_probs(prob_model, x_test)
+
+	y_predict = model.predict(x_test)
+	y_predict_list = [x[0] for x in list(y_predict)]
+	for i, j in zip(list(y_test), y_predict_list):
+		print(i, j)
 
 if __name__ == "__main__":
 	main()
