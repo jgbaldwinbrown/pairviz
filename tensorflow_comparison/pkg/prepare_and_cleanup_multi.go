@@ -64,6 +64,7 @@ func (a Args) CrossCleanupFlags(i int) CleanupFlags {
 		Bed: a.Crosses[i].Bed,
 		Outpre: fmt.Sprintf("%v_cleanup_%v", a.Outpre, i),
 		Parent: a.Crosses[i].Parent,
+		Paircol: a.Paircol,
 	}
 }
 
