@@ -28,7 +28,7 @@ func Must(e error) {
 	}
 }
 
-func RunPaths(inpath, outpath string) error {
+func RunPaths(maxdist int64, inpath, outpath string) error {
 	r, e := OpenMaybeGz(inpath)
 	if e != nil {
 		return e
@@ -44,7 +44,7 @@ func RunPaths(inpath, outpath string) error {
 	bw := bufio.NewWriter(w)
 	defer func() { Must(bw.Flush()) }()
 
-	return Run(br, bw)
+	return Run(maxdist, br, bw)
 }
 
 func RunPlot(ctx context.Context, j Job) error {
@@ -61,7 +61,7 @@ func RunPlot(ctx context.Context, j Job) error {
 }
 
 func RunJob(ctx context.Context, j Job) error {
-	e := RunPaths(j.Inpath, j.Outpath)
+	e := RunPaths(j.Maxdist, j.Inpath, j.Outpath)
 	if e != nil {
 		return e
 	}
