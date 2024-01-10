@@ -1,6 +1,7 @@
 package prepfa
 
 import (
+	"strconv"
 	"log"
 	"strings"
 	"bufio"
@@ -218,6 +219,7 @@ type CleanupFlags struct {
 	Bed string
 	Outpre string
 	Parent string
+	Paircol int
 }
 
 func GetCleanupFlags() (CleanupFlags, error) {
@@ -228,6 +230,7 @@ func GetCleanupFlags() (CleanupFlags, error) {
 	flag.StringVar(&f.Bed, "bed", "", "path to .bed or .bed.gz file")
 	flag.StringVar(&f.Outpre, "o", "out", "output prefix")
 	flag.StringVar(&f.Parent, "p", "", "parent to keep")
+	flag.IntVar(&f.Paircol, "c", 7, "Column in bed files specifying pairing rate")
 	flag.Parse()
 
 	if f.Fa1 == "" {
@@ -244,6 +247,35 @@ func GetCleanupFlags() (CleanupFlags, error) {
 	}
 
 	return f, nil
+}
+
+type StripNaNsOut struct {
+	Bed []fastats.BedEntry[[]string]
+	Fa1 []fastats.FaEntry
+	Fa2 []fastats.FaEntry
+}
+
+func StripNaNs(col int, bed []fastats.BedEntry[[]string], fa1, fa2 []fastats.FaEntry) (StripNaNsOut, error) {
+	out := StripNaNsOut {
+		Bed: make([]fastats.BedEntry[[]string], 0, len(bed)),
+		Fa1: make([]fastats.FaEntry, 0, len(fa1)),
+		Fa2: make([]fastats.FaEntry, 0, len(fa2)),
+	}
+
+	if len(bed) != len(fa1) || len(bed) != len(fa2) {
+		return out, fmt.Errorf("StripNaNs: lengths don't match; len(bed) %v, len(fa1) %v, len(fa2) %v", len(bed), len(fa1), len(fa2))
+	}
+
+	for i, _ := range bed {
+		_, err := strconv.ParseFloat(bed[i].Fields[col], 64)
+		if err == nil {
+			out.Bed = append(out.Bed, bed[i])
+			out.Fa1 = append(out.Fa1, fa1[i])
+			out.Fa2 = append(out.Fa2, fa2[i])
+		}
+	}
+
+	return out, nil
 }
 
 func Cleanup(f CleanupFlags) error {
@@ -284,19 +316,34 @@ func Cleanup(f CleanupFlags) error {
 	if e != nil {
 		panic(e)
 	}
-	if e := WriteBed(f.Outpre + ".bed.gz", iter.SliceIter[fastats.BedEntry[[]string]](bedkept)); e != nil {
-		panic(e)
-	}
 
 	bedset := BedSet[[]string](iter.SliceIter[fastats.BedEntry[[]string]](bedkept))
-
-	fa1kept := KeepFaMatches(bedset, iter.SliceIter[fastats.FaEntry](fa1))
-	if e := WriteFasta(f.Outpre + "_1.fa.gz", fa1kept); e != nil {
+	fa1kept, e := iter.Collect[fastats.FaEntry](KeepFaMatches(bedset, iter.SliceIter[fastats.FaEntry](fa1)))
+	if e != nil {
+		panic(e)
+	}
+	fa2kept, e := iter.Collect[fastats.FaEntry](KeepFaMatches(bedset, iter.SliceIter[fastats.FaEntry](fa2)))
+	if e != nil {
 		panic(e)
 	}
 
-	fa2kept := KeepFaMatches(bedset, iter.SliceIter[fastats.FaEntry](fa2))
-	if e := WriteFasta(f.Outpre + "_2.fa.gz", fa2kept); e != nil {
+	stripped, e := StripNaNs(
+		f.Paircol,
+		bedkept,
+		fa1kept,
+		fa2kept,
+	)
+	if e != nil {
+		panic(e)
+	}
+
+	if e := WriteBed(f.Outpre + ".bed.gz", iter.SliceIter[fastats.BedEntry[[]string]](stripped.Bed)); e != nil {
+		panic(e)
+	}
+	if e := WriteFasta(f.Outpre + "_1.fa.gz", iter.SliceIter[fastats.FaEntry](stripped.Fa1)); e != nil {
+		panic(e)
+	}
+	if e := WriteFasta(f.Outpre + "_2.fa.gz", iter.SliceIter[fastats.FaEntry](stripped.Fa2)); e != nil {
 		panic(e)
 	}
 
