@@ -5,21 +5,15 @@ import (
 	"github.com/jgbaldwinbrown/slide/pkg"
 	"github.com/jgbaldwinbrown/csvh"
 	"github.com/jgbaldwinbrown/covplots/pkg"
-	"flag"
-	"io"
-	"os"
+	"path/filepath"
 	"fmt"
 	"strings"
 )
 
-func main() {
-	RunFull()
-}
-
 func RunFull() {
-	args := MakeFullArgsMinus2()
+	args := MakeFullArgsWorkable()
 	outpre := "megaseqout/out"
-	if e := Full((outpre, args...); e != nil {
+	if e := Full(outpre, args...); e != nil {
 		panic(e)
 	}
 }
@@ -32,7 +26,7 @@ func Full(outpre string, args ...NameSet) error {
 		a := a
 		g.Go(func() error {
 			var e error
-			isets[i], e = SlideAndMakeInputSet(arg)
+			isets[i], e = SlideAndMakeInputSet(a)
 			return e
 		})
 	}
@@ -47,13 +41,13 @@ func Full(outpre string, args ...NameSet) error {
 }
 
 func Plot(cs ...covplots.UltimateConfig) error {
-	return AllMultiplotParallel(cs, 0, 0, 1, true, nil)
+	return covplots.AllMultiplotParallel(cs, 0, 0, 1, true, nil)
 }
 
 func MakeInputSet(n NameSet) (covplots.InputSet, error) {
 	var out covplots.InputSet
 	out.Paths = append(out.Paths, n.SnpWinOutpath, n.PairInpath)
-	out.Name = s.Name + "_" + s.Ref
+	out.Name = n.Name + "_" + n.Ref
 	out.Functions = []string {
 		"strip_header_some",
 		"hic_pair_prop_cols_some",
@@ -62,17 +56,17 @@ func MakeInputSet(n NameSet) (covplots.InputSet, error) {
 	}
 	out.FunctionArgs = []any {
 		[]int{1},
-		[]int{1]},
+		[]int{1},
 		nil,
 		nil,
 	}
-	return out
+	return out, nil
 }
 
 func MakePlotArgs(outpre string, sets ...covplots.InputSet) (covplots.UltimateConfig, error) {
 	var c covplots.UltimateConfig
-	c.Plotfunc = "plot_self_vs_pair_pretty",
-	c.Plotfuncargs = covplots.PlotSelfVsPairArgs {
+	c.Plotfunc = "plot_self_vs_pair_pretty"
+	c.PlotfuncArgs = covplots.PlotSelfVsPairArgs {
 		Xmin: 0.0,
 		Xmax: 8000.0,
 		Ylab: "Pairing rate",
@@ -84,16 +78,16 @@ func MakePlotArgs(outpre string, sets ...covplots.InputSet) (covplots.UltimateCo
 	}
 	c.Fullchr = true
 	c.Outpre = outpre
-	c.Ylim = []int{0, 0.25}
+	c.Ylim = []float64{0, 0.25}
 	c.InputSets = append(c.InputSets, sets...)
 	return c, nil
 }
 
-func SlideAndMakeInputSet(set NameSet) (covplots.InputSet, error) {
-	if e := SlidingGffEntryCountPaths(SnpInpath, SnpWinOutpath, WinSize, WinStep); e != nil {
+func SlideAndMakeInputSet(n NameSet) (covplots.InputSet, error) {
+	if e := SlidingGffEntryCountPaths(n.SnpInpath, n.SnpWinOutpath, float64(n.WinSize), float64(n.WinStep)); e != nil {
 		return covplots.InputSet{}, e
 	}
-	return MakeInputSet(set)
+	return MakeInputSet(n)
 }
 
 func SlidingGffEntryCountPaths(src, dst string, size float64, step float64) (err error) {
@@ -109,7 +103,7 @@ func SlidingGffEntryCountPaths(src, dst string, size float64, step float64) (err
 	}
 	defer func() { csvh.DeferE(&err, out.Close()) }()
 
-	return SlidingGffEntryCountFull(in, out, size, step)
+	return slide.SlidingGffEntryCountFull(in, out, size, step)
 }
 
 func BpFormat(bp int64) string {
@@ -145,7 +139,6 @@ type NameSet struct {
 type NameRef struct {
 	Name string
 	Ref string
-	Outpre string
 }
 
 func Pnames(name string) string {
@@ -175,10 +168,12 @@ func Pnames(name string) string {
 
 func MakeNameSetV1(nr NameRef) NameSet {
 	suffix := "_hits_100kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt.gz"
+	snpinprefix := "/home/jgbaldwinbrown/Documents/work_stuff/drosophila/homologous_hybrid_mispairing/refs/nucdiff_all/fullset/links"
+	snpinsuffix := "_snp_counts.gff.gz"
 	snpoutsuf := "_snp_win.txt"
 	return NameSet {
 		PairInpath: nr.Name + suffix,
-		SnpInpath string // in progress
+		SnpInpath: filepath.Join(snpinprefix, nr.Ref + snpinsuffix),
 		WinSize: 100000,
 		WinStep: 10000,
 		SnpWinOutpath: nr.Name + snpoutsuf,
@@ -187,12 +182,14 @@ func MakeNameSetV1(nr NameRef) NameSet {
 	}
 }
 
-func MakeNameSetV1(nr NameRef) NameSet {
+func MakeNameSetV2(nr NameRef) NameSet {
 	suffix := "_hits_100kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt.gz"
+	snpinprefix := "/home/jgbaldwinbrown/Documents/work_stuff/drosophila/homologous_hybrid_mispairing/refs/nucdiff_all/fullset/links"
+	snpinsuffix := "_snp_counts.gff.gz"
 	snpoutsuf := "_snp_win.txt"
 	return NameSet {
 		PairInpath: nr.Name + "_to_" + nr.Ref + suffix,
-		SnpInpath string // in progress
+		SnpInpath: filepath.Join(snpinprefix, nr.Ref + snpinsuffix),
 		WinSize: 100000,
 		WinStep: 10000,
 		SnpWinOutpath: nr.Name + "_to_" + snpoutsuf,
@@ -202,23 +199,22 @@ func MakeNameSetV1(nr NameRef) NameSet {
 }
 
 func MakeArgsV1(namerefs ...NameRef) []NameSet {
-	as := make([]string, 0, len(namerefs))
+	as := make([]NameSet, 0, len(namerefs))
 	for _, nr := range namerefs {
-		as = append(as, MakeNameSetV1(nr)))
+		as = append(as, MakeNameSetV1(nr))
 	}
 	return as
 }
 
 func MakeArgsV2(namerefs ...NameRef) []NameSet {
-	suffix := "_hits_100kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt.gz"
-	as := make([]string, 0, len(namerefs))
+	as := make([]NameSet, 0, len(namerefs))
 	for _, nr := range namerefs {
-		as = append(as, nr.Name + "_to_" + nr.Ref + suffix))
+		as = append(as, MakeNameSetV2(nr))
 	}
 	return as
 }
 
-func MakeFullArgs() []string {
+func MakeFullArgs() []NameSet {
 	return MakeArgsV2(
 		NameRef{"ixw_sal", "ixw"}, NameRef{"ixw_adult", "ixw"}, NameRef{"ixw_brain", "ixw"}, NameRef{"ixw_fat", "ixw"},
 		NameRef{"ixa4_sal", "ixa4"}, NameRef{"ixa4_adult", "ixa4"}, NameRef{"ixa4_brain", "ixa4"}, NameRef{"ixa4_fat", "ixa4"},
@@ -245,117 +241,12 @@ func MakeFullArgsMinus2() []NameSet {
 	)
 }
 
-// ./a7xn_adult_hits_100kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./a7xn_adult_hits_10kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./a7xn_adult_hits_10Mb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./a7xn_adult_hits_1kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./a7xn_adult_hits_1Mb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./a7xn_sal_hits_100kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./a7xn_sal_hits_10kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./a7xn_sal_hits_10Mb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./a7xn_sal_hits_1kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./a7xn_sal_hits_1Mb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./hxw_sal_hits_100kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./hxw_sal_hits_10kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./hxw_sal_hits_10Mb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./hxw_sal_hits_1kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./hxw_sal_hits_1Mb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixa4_adult_hits_100kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixa4_adult_hits_10kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixa4_adult_hits_10Mb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixa4_adult_hits_1kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixa4_adult_hits_1Mb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixa4_brain_hits_100kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixa4_brain_hits_10kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixa4_brain_hits_10Mb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixa4_brain_hits_1kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixa4_brain_hits_1Mb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixa4_fat_hits_100kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixa4_fat_hits_10kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixa4_fat_hits_10Mb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixa4_fat_hits_1kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixa4_fat_hits_1Mb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixa4_sal_hits_100kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixa4_sal_hits_10kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixa4_sal_hits_10Mb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixa4_sal_hits_1kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixa4_sal_hits_1Mb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixa7_adult_hits_100kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixa7_adult_hits_10kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixa7_adult_hits_10Mb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixa7_adult_hits_1kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixa7_adult_hits_1Mb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixa7_sal_hits_100kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixa7_sal_hits_10kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixa7_sal_hits_10Mb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixa7_sal_hits_1kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixa7_sal_hits_1Mb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixl_sal_hits_100kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixl_sal_hits_10kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixl_sal_hits_10Mb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixl_sal_hits_1kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixl_sal_hits_1Mb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixs_sal_hits_100kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixs_sal_hits_10kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixs_sal_hits_10Mb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixs_sal_hits_1Mb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixw_adult_hits_100kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixw_adult_hits_10kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixw_adult_hits_10Mb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixw_adult_hits_1kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixw_adult_hits_1Mb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixw_brain_hits_100kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixw_brain_hits_10kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixw_brain_hits_10Mb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixw_brain_hits_1kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixw_brain_hits_1Mb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixw_fat_hits_100kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixw_fat_hits_10kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixw_fat_hits_10Mb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixw_fat_hits_1kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./ixw_fat_hits_1Mb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./mxw_sal_hits_100kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./mxw_sal_hits_10kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./mxw_sal_hits_10Mb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./mxw_sal_hits_1kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./mxw_sal_hits_1Mb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./nxw_adult_hits_100kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./nxw_adult_hits_10kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./nxw_adult_hits_10Mb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./nxw_adult_hits_1Mb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./nxw_sal_hits_100kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./nxw_sal_hits_10kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./nxw_sal_hits_10Mb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./nxw_sal_hits_1Mb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./sxw_sal_hits_100kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./sxw_sal_hits_10kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./sxw_sal_hits_10Mb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./sxw_sal_hits_1Mb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt
-// ./a7xn_sal_to_a7xn_hits_100kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt.gz
-// ./a7xn_sal_to_a7xn_hits_10kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt.gz
-// ./a7xn_sal_to_a7xn_hits_1kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt.gz
-// ./a7xn_sal_to_ixw_hits_100kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt.gz
-// ./a7xn_sal_to_ixw_hits_10kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt.gz
-// ./a7xn_sal_to_ixw_hits_1kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt.gz
-// ./hxw_sal_to_ixw_hits_100kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt.gz
-// ./hxw_sal_to_ixw_hits_1kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt.gz
-// ./ixl_sal_to_ixw_hits_100kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt.gz
-// ./ixl_sal_to_ixw_hits_10kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt.gz
-// ./ixl_sal_to_ixw_hits_1kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt.gz
-// ./ixw_brain_to_ixw_hits_100kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt.gz
-// ./ixw_brain_to_ixw_hits_10kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt.gz
-// ./ixw_brain_to_ixw_hits_1kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt.gz
-// ./mxw_sal_to_mxw_hits_100kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt.gz
-// ./mxw_sal_to_mxw_hits_1kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt.gz
-
-
-// pair_vs_structdiff_centro.json
-// 
-// slide_gff_entry_count -s 100000 -t 10000 <out_ref_snps.gff > snp_counts.bed
-// slide_gff_bp_covered -s 100000 -t 10000 <out_ref_struct.gff > struct_bp_covered.bed
-// 
-// slide_gff_entry_count -s 100000 -t 10000 <ixa_ref_snps.gff > ixa_snp_counts.bed
-// slide_gff_bp_covered -s 100000 -t 10000 <ixa_ref_struct.gff > ixa_struct_bp_covered.bed
-// 
-// slide_gff_entry_count -s 100000 -t 10000 <wxw_ref_snps.gff > wxw_snp_counts.bed
-// slide_gff_bp_covered -s 100000 -t 10000 <wxw_ref_struct.gff > wxw_struct_bp_covered.bed
+func MakeFullArgsWorkable() []NameSet {
+	return MakeArgsV1(
+		NameRef{"ixw_fat", "ixw"},
+		NameRef{"ixa4_sal", "ixa4"}, NameRef{"ixa4_fat", "ixa4"},
+		NameRef{"ixa7_sal", "ixa7"},
+		NameRef{"a7xn_sal", "ixw"},
+		NameRef{"nxw_sal", "nxw"},
+	)
+}
