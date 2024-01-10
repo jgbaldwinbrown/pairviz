@@ -75,22 +75,23 @@ func MakeArgs(maxdist int64, namerefs ...NameRef) []Job {
 }
 
 func MakeVerySmallArgs() []Job {
-	return MakeArgs(1000, NameRef{"nxw_sal", "nxw"}, NameRef{"nxw_adult", "nxw"})
+	return MakeArgs(10000, NameRef{"nxw_sal", "nxw"}, NameRef{"nxw_adult", "nxw"})
 }
 
 func MakeMinimalArgs() []Job {
-	return MakeArgs(1000, NameRef{"nxw_adult_mini", "nxw"})
+	return MakeArgs(10000, NameRef{"nxw_adult_mini", "nxw"})
 }
 
 func MakeMicroArgs() []Job {
-	return MakeArgs(1000, NameRef{"nxw_adult_micro", "nxw"}, NameRef{"nxw_sal_micro", "nxw"})
+	return MakeArgs(10000, NameRef{"nxw_adult_micro", "nxw"}, NameRef{"nxw_sal_micro", "nxw"})
 }
 
 func MakeFullArgs() []Job {
-	return MakeArgs(1000,
+	return MakeArgs(3000,
 		NameRef{"ixw_sal", "ixw"}, NameRef{"ixw_adult", "ixw"}, NameRef{"ixw_brain", "ixw"}, NameRef{"ixw_fat", "ixw"},
 		NameRef{"ixa4_sal", "ixa4"}, NameRef{"ixa4_adult", "ixa4"}, NameRef{"ixa4_brain", "ixa4"}, NameRef{"ixa4_fat", "ixa4"},
 		NameRef{"ixa7_sal", "ixa7"}, NameRef{"ixa7_adult", "ixa7"},
+		NameRef{"a7xn_sal", "a7xn"}, NameRef{"a7xn_adult", "a7xn"},
 		NameRef{"a7xn_sal", "ixw"}, NameRef{"a7xn_adult", "ixw"},
 		NameRef{"nxw_sal", "nxw"}, NameRef{"nxw_adult", "nxw"},
 		NameRef{"mxw_sal", "mxw"}, NameRef{"mxw_adult", "mxw"},
@@ -112,7 +113,7 @@ func PrintAllJobs(w io.Writer, jobs []Job) error {
 }
 
 func FullPrintJobs() {
-	if e := PrintAllJobs(os.Stdout, MakeMicroArgs()); e != nil {
+	if e := PrintAllJobs(os.Stdout, MakeFullArgs()); e != nil {
 		panic(e)
 	}
 }

@@ -157,7 +157,15 @@ func SliceInc(sl *[]int64, idx int64) {
 	(*sl)[idx]++
 }
 
-func Run(r io.Reader, w io.Writer) error {
+func SliceIncMax(sl *[]int64, idx int64, max int64) {
+	if sl == nil  || idx >= max {
+		return
+	}
+	*sl = GrowSlice(*sl, idx+1)
+	(*sl)[idx]++
+}
+
+func Run(maxdist int64, r io.Reader, w io.Writer) error {
 	h := handle("Run: %w")
 	cr := csv.NewReader(r)
 	cr.ReuseRecord = true
@@ -224,24 +232,24 @@ func Run(r io.Reader, w io.Writer) error {
 		}
 
 		if p.Read1.Chrom != p.Read2.Chrom {
-			SliceInc(&transcounts, dist)
-			SliceInc(transfacecountp, dist)
+			SliceIncMax(&transcounts, dist, maxdist)
+			SliceIncMax(transfacecountp, dist, maxdist)
 			if p.Read1.Parent == p.Read2.Parent {
-				SliceInc(&selftranscounts, dist)
-				SliceInc(selftransfacecountp, dist)
+				SliceIncMax(&selftranscounts, dist, maxdist)
+				SliceIncMax(selftransfacecountp, dist, maxdist)
 			} else {
-				SliceInc(&pairtranscounts, dist)
-				SliceInc(pairtransfacecountp, dist)
+				SliceIncMax(&pairtranscounts, dist, maxdist)
+				SliceIncMax(pairtransfacecountp, dist, maxdist)
 			}
 			continue
 		}
 		if p.Read1.Parent == p.Read2.Parent {
-			SliceInc(&selfcounts, dist)
-			SliceInc(selffacecountp, dist)
+			SliceIncMax(&selfcounts, dist, maxdist)
+			SliceIncMax(selffacecountp, dist, maxdist)
 			continue
 		}
-		SliceInc(&paircounts, dist)
-		SliceInc(pairfacecountp, dist)
+		SliceIncMax(&paircounts, dist, maxdist)
+		SliceIncMax(pairfacecountp, dist, maxdist)
 	}
 
 	maxlen := len(transcounts)
