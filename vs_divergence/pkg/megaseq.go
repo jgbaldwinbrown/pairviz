@@ -167,7 +167,7 @@ func Pnames(name string) string {
 }
 
 func MakeNameSetV1(nr NameRef) NameSet {
-	suffix := "_hits_100kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt.gz"
+	suffix := "_hits_100kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt"
 	snpinprefix := "/home/jgbaldwinbrown/Documents/work_stuff/drosophila/homologous_hybrid_mispairing/refs/nucdiff_all/fullset/links"
 	snpinsuffix := "_snp_counts.gff.gz"
 	snpoutsuf := "_snp_win.txt"
