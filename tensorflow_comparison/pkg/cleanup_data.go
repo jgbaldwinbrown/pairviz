@@ -2,7 +2,6 @@ package prepfa
 
 import (
 	"strconv"
-	"log"
 	"strings"
 	"bufio"
 	"github.com/jgbaldwinbrown/fastats/pkg"
@@ -118,10 +117,10 @@ func KeepBedMatches[T any](css map[string]int, it iter.Iter[fastats.BedEntry[T]]
 			}
 
 			if count, ok := counts[b.Chr]; ok {
-				log.Printf("ok\n")
+				// log.Printf("ok\n")
 				oknum := count < css[b.Chr]
 				counts[b.Chr]++
-				log.Printf("count: %v; css[b.Chr]: %v; oknum: %v; b: %v\n", count, css[b.Chr], oknum, b)
+				// log.Printf("count: %v; css[b.Chr]: %v; oknum: %v; b: %v\n", count, css[b.Chr], oknum, b)
 				if oknum {
 					return yield(b)
 				}
@@ -146,10 +145,10 @@ func KeepFaMatches(css map[string]int, it iter.Iter[fastats.FaEntry]) *iter.Iter
 			fachr := facs.Chr
 
 			if count, ok := counts[fachr]; ok {
-				log.Printf("ok\n")
+				// log.Printf("ok\n")
 				oknum := count < css[fachr]
 				counts[fachr]++
-				log.Printf("count: %v; css[fachr]: %v; oknum: %v; b: %v\n", count, css[fachr], oknum, b)
+				// log.Printf("count: %v; css[fachr]: %v; oknum: %v; b: %v\n", count, css[fachr], oknum, b)
 				if oknum {
 					return yield(b)
 				}
@@ -310,7 +309,7 @@ func Cleanup(f CleanupFlags) error {
 		panic(e)
 	}
 	SortBed(bed)
-	log.Println("set:", set)
+	// log.Println("set:", set)
 
 	bedkept, e := iter.Collect[fastats.BedEntry[[]string]](KeepBedMatches[[]string](set, iter.SliceIter[fastats.BedEntry[[]string]](bed)))
 	if e != nil {

@@ -424,14 +424,14 @@ func PrepFa(f PrepFaFlags) error {
 		panic(err)
 	}
 
-	log.Printf("len(fa): %v\n", len(fa))
+	// log.Printf("len(fa): %v\n", len(fa))
 
 	_, vcf, err := CollectVCF(f.Vcf, f.C0, f.C1)
 	if err != nil {
 		panic(err)
 	}
 
-	log.Printf("len(vcf): %v\n", len(vcf))
+	// log.Printf("len(vcf): %v\n", len(vcf))
 
 	fa1, fa2, coords1, coords2 := BuildFas(fa, vcf)
 
