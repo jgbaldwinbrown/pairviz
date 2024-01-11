@@ -8,31 +8,41 @@ import (
 	"path/filepath"
 	"fmt"
 	"strings"
+	"flag"
 )
 
 func RunFull() {
+	skipbuildp := flag.Bool("skipwin", false, "skip building sliding snp windows")
+	flag.Parse()
+
 	args := MakeFullArgsWorkable()
 	outpre := "megaseqout/out"
-	if e := Full(outpre, args...); e != nil {
+	if e := Full(*skipbuildp, outpre, args...); e != nil {
 		panic(e)
 	}
 }
 
-func Full(outpre string, args ...NameSet) error {
-	var g errgroup.Group
-	isets := make([]covplots.InputSet, len(args))
-	for i, a := range args {
-		i := i
-		a := a
-		g.Go(func() error {
-			var e error
-			isets[i], e = SlideAndMakeInputSet(a)
+func Full(skipwin bool, outpre string, args ...NameSet) error {
+	if !skipwin {
+		var g errgroup.Group
+		for _, a := range args {
+			a := a
+			g.Go(func() error {
+				var e error
+				e = Slide(a)
+				return e
+			})
+		}
+		if e := g.Wait(); e != nil {
 			return e
-		})
+		}
 	}
-	if e := g.Wait(); e != nil {
-		return e
+
+	isets := make([]covplots.InputSet, 0, len(args))
+	for _, a := range args {
+		isets = append(isets, MakeInputSet(a))
 	}
+
 	c, e := MakePlotArgs(outpre, isets...)
 	if e != nil {
 		return e
@@ -44,7 +54,7 @@ func Plot(cs ...covplots.UltimateConfig) error {
 	return covplots.AllMultiplotParallel(cs, 0, 0, 1, true, nil)
 }
 
-func MakeInputSet(n NameSet) (covplots.InputSet, error) {
+func MakeInputSet(n NameSet) covplots.InputSet {
 	var out covplots.InputSet
 	out.Paths = append(out.Paths, n.SnpWinOutpath, n.PairInpath)
 	out.Name = n.Name + "_" + n.Ref
@@ -52,15 +62,17 @@ func MakeInputSet(n NameSet) (covplots.InputSet, error) {
 		"strip_header_some",
 		"hic_pair_prop_cols_some",
 		"fourcolumns",
+		"colsed",
 		"combine_to_one_line_dumb",
 	}
 	out.FunctionArgs = []any {
-		[]any{1},
-		[]any{1},
+		[]any{1.0},
+		[]any{1.0},
 		nil,
+		covplots.ColSedArgs{Col: 0, Pattern: `(_[^_]*)?$`, Replace: `_ISO1`},
 		nil,
 	}
-	return out, nil
+	return out
 }
 
 func MakePlotArgs(outpre string, sets ...covplots.InputSet) (covplots.UltimateConfig, error) {
@@ -78,16 +90,13 @@ func MakePlotArgs(outpre string, sets ...covplots.InputSet) (covplots.UltimateCo
 	}
 	c.Fullchr = true
 	c.Outpre = outpre
-	c.Ylim = []float64{0, 0.25}
+	c.Ylim = []float64{0, 0.50}
 	c.InputSets = append(c.InputSets, sets...)
 	return c, nil
 }
 
-func SlideAndMakeInputSet(n NameSet) (covplots.InputSet, error) {
-	if e := SlidingGffEntryCountPaths(n.SnpInpath, n.SnpWinOutpath, float64(n.WinSize), float64(n.WinStep)); e != nil {
-		return covplots.InputSet{}, e
-	}
-	return MakeInputSet(n)
+func Slide(n NameSet) error {
+	return SlidingGffEntryCountPaths(n.SnpInpath, n.SnpWinOutpath, float64(n.WinSize), float64(n.WinStep))
 }
 
 func SlidingGffEntryCountPaths(src, dst string, size float64, step float64) (err error) {

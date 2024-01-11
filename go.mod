@@ -3,7 +3,7 @@ module github.com/jgbaldwinbrown/pairviz
 go 1.18
 
 require (
-	github.com/jgbaldwinbrown/covplots v0.1.2
+	github.com/jgbaldwinbrown/covplots v0.1.3
 	github.com/jgbaldwinbrown/csvh v0.1.5
 	github.com/jgbaldwinbrown/fastats v0.1.2
 	github.com/jgbaldwinbrown/fasttsv v0.1.1
