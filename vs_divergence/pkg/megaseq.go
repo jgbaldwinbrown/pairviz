@@ -55,8 +55,8 @@ func MakeInputSet(n NameSet) (covplots.InputSet, error) {
 		"combine_to_one_line_dumb",
 	}
 	out.FunctionArgs = []any {
-		[]int{1},
-		[]int{1},
+		[]any{1},
+		[]any{1},
 		nil,
 		nil,
 	}
