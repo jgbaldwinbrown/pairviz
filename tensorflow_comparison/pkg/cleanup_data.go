@@ -1,6 +1,7 @@
 package prepfa
 
 import (
+	"math"
 	"strconv"
 	"strings"
 	"bufio"
@@ -266,8 +267,8 @@ func StripNaNs(col int, bed []fastats.BedEntry[[]string], fa1, fa2 []fastats.FaE
 	}
 
 	for i, _ := range bed {
-		_, err := strconv.ParseFloat(bed[i].Fields[col], 64)
-		if err == nil {
+		f, err := strconv.ParseFloat(bed[i].Fields[col], 64)
+		if err == nil && !math.IsNaN(f) && !math.IsInf(f, 0) {
 			out.Bed = append(out.Bed, bed[i])
 			out.Fa1 = append(out.Fa1, fa1[i])
 			out.Fa2 = append(out.Fa2, fa2[i])
@@ -327,7 +328,7 @@ func Cleanup(f CleanupFlags) error {
 	}
 
 	stripped, e := StripNaNs(
-		f.Paircol,
+		f.Paircol - 3,
 		bedkept,
 		fa1kept,
 		fa2kept,
