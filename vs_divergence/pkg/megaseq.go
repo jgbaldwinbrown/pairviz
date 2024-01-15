@@ -13,9 +13,10 @@ import (
 
 func RunFull() {
 	skipbuildp := flag.Bool("skipwin", false, "skip building sliding snp windows")
+	nobadp := flag.Bool("nobads", false, "append _nobads to file names; for use with censored files")
 	flag.Parse()
 
-	args := MakeFullArgsWorkable()
+	args := MakeFullArgsWorkable(*nobadp)
 	outpre := "megaseqout/out"
 	if e := Full(*skipbuildp, outpre, args...); e != nil {
 		panic(e)
@@ -175,8 +176,13 @@ func Pnames(name string) string {
 	return fmt.Sprintf("%v %v", pnames[fields[0]], tissue[fields[1]])
 }
 
-func MakeNameSetV1(nr NameRef) NameSet {
-	suffix := "_hits_100kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt"
+func MakeNameSetV1(nr NameRef, nobad bool) NameSet {
+	suffix := "_hits_100kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp"
+	if nobad {
+		suffix = suffix + "_nobads.txt"
+	} else {
+		suffix = suffix + ".txt"
+	}
 	snpinprefix := "/home/jgbaldwinbrown/Documents/work_stuff/drosophila/homologous_hybrid_mispairing/refs/nucdiff_all/fullset/links"
 	snpinsuffix := "_snp_counts.gff.gz"
 	snpoutsuf := "_snp_win.txt"
@@ -191,8 +197,13 @@ func MakeNameSetV1(nr NameRef) NameSet {
 	}
 }
 
-func MakeNameSetV2(nr NameRef) NameSet {
-	suffix := "_hits_100kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp.txt.gz"
+func MakeNameSetV2(nr NameRef, nobad bool) NameSet {
+	suffix := "_hits_100kb_dist100kb_dist100kb_mindist1kb_pairmindist1kb_named_sim800bp"
+	if nobad {
+		suffix = suffix + "_nobads.txt"
+	} else {
+		suffix = suffix + ".txt.gz"
+	}
 	snpinprefix := "/home/jgbaldwinbrown/Documents/work_stuff/drosophila/homologous_hybrid_mispairing/refs/nucdiff_all/fullset/links"
 	snpinsuffix := "_snp_counts.gff.gz"
 	snpoutsuf := "_snp_win.txt"
@@ -207,24 +218,24 @@ func MakeNameSetV2(nr NameRef) NameSet {
 	}
 }
 
-func MakeArgsV1(namerefs ...NameRef) []NameSet {
+func MakeArgsV1(nobad bool, namerefs ...NameRef) []NameSet {
 	as := make([]NameSet, 0, len(namerefs))
 	for _, nr := range namerefs {
-		as = append(as, MakeNameSetV1(nr))
+		as = append(as, MakeNameSetV1(nr, nobad))
 	}
 	return as
 }
 
-func MakeArgsV2(namerefs ...NameRef) []NameSet {
+func MakeArgsV2(nobad bool, namerefs ...NameRef) []NameSet {
 	as := make([]NameSet, 0, len(namerefs))
 	for _, nr := range namerefs {
-		as = append(as, MakeNameSetV2(nr))
+		as = append(as, MakeNameSetV2(nr, nobad))
 	}
 	return as
 }
 
 func MakeFullArgs() []NameSet {
-	return MakeArgsV2(
+	return MakeArgsV2(false,
 		NameRef{"ixw_sal", "ixw"}, NameRef{"ixw_adult", "ixw"}, NameRef{"ixw_brain", "ixw"}, NameRef{"ixw_fat", "ixw"},
 		NameRef{"ixa4_sal", "ixa4"}, NameRef{"ixa4_adult", "ixa4"}, NameRef{"ixa4_brain", "ixa4"}, NameRef{"ixa4_fat", "ixa4"},
 		NameRef{"ixa7_sal", "ixa7"}, NameRef{"ixa7_adult", "ixa7"},
@@ -238,7 +249,7 @@ func MakeFullArgs() []NameSet {
 }
 
 func MakeFullArgsMinus2() []NameSet {
-	return MakeArgsV1(
+	return MakeArgsV1(false,
 		NameRef{"ixw_adult", "ixw"}, NameRef{"ixw_brain", "ixw"}, NameRef{"ixw_fat", "ixw"},
 		NameRef{"ixa4_sal", "ixa4"}, NameRef{"ixa4_adult", "ixa4"}, NameRef{"ixa4_brain", "ixa4"}, NameRef{"ixa4_fat", "ixa4"},
 		NameRef{"ixa7_sal", "ixa7"}, NameRef{"ixa7_adult", "ixa7"},
@@ -250,8 +261,8 @@ func MakeFullArgsMinus2() []NameSet {
 	)
 }
 
-func MakeFullArgsWorkable() []NameSet {
-	return MakeArgsV1(
+func MakeFullArgsWorkable(nobad bool) []NameSet {
+	return MakeArgsV1(nobad,
 		NameRef{"ixw_fat", "ixw"},
 		NameRef{"ixa4_sal", "ixa4"}, NameRef{"ixa4_fat", "ixa4"},
 		NameRef{"ixa7_sal", "ixa7"},
