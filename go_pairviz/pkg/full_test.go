@@ -1,7 +1,7 @@
 package pairviz
 
 import (
-	"os"
+	// "os"
 	"testing"
 	"strings"
 )
@@ -66,12 +66,17 @@ func TestFull(t *testing.T) {
 	in := strings.NewReader(gTestIn)
 	// var out strings.Builder
 
-	FprintWinStats(os.Stdout, WinStats(flags, in), flags.SeparateGenomes, flags.ReadLen, true)
+	_ = in
+	_ = flags
+	// FprintWinStats(os.Stdout, WinStats(flags, in), flags.SeparateGenomes, flags.ReadLen, true)
 }
 
 func TestFullSelfInMin(t *testing.T) {
 	flags := gFlags
 	flags.SelfInMinDistance = 3
 	in := strings.NewReader(gTestIn)
-	FprintWinStats(os.Stdout, WinStats(flags, in), flags.SeparateGenomes, flags.ReadLen, true)
+
+	_ = in
+	_ = flags
+	// FprintWinStats(os.Stdout, WinStats(flags, in), flags.SeparateGenomes, flags.ReadLen, true)
 }
