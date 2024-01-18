@@ -219,6 +219,39 @@ func SubtractControlStatAll(it Iter[JsonOutStat], control JsonOutStat) *Iterator
 	}}
 }
 
+func DivideControlAltFpkm(x JsonOutStat, control JsonOutStat) JsonOutStat {
+	out := x
+	out.TargetHits = x.TargetHits / control.AltFpkm
+	out.AltHits = x.AltHits / control.AltFpkm
+	out.TargetProp = x.TargetProp / control.AltFpkm
+	out.AltProp = x.AltProp / control.AltFpkm
+	out.TargetPropGoodBad = x.TargetPropGoodBad / control.AltFpkm
+	out.TargetPropGood = x.TargetPropGood / control.AltFpkm
+	out.TargetPropTotal = x.TargetPropTotal / control.AltFpkm
+	out.TargetFpkm = x.TargetFpkm / control.AltFpkm
+	out.AltFpkm = x.AltFpkm / control.AltFpkm
+	out.TargetFpkmProp = x.TargetFpkmProp / control.AltFpkm
+	out.AltFpkmProp = x.AltFpkmProp / control.AltFpkm
+	out.AltOvlHits = x.AltOvlHits / control.AltFpkm
+	out.AltNonOvlHits = x.AltNonOvlHits / control.AltFpkm
+	out.AltOvlProp = x.AltOvlProp / control.AltFpkm
+	out.AltNonOvlProp = x.AltNonOvlProp / control.AltFpkm
+	out.AltOvlFpkm = x.AltOvlFpkm / control.AltFpkm
+	out.AltNonOvlFpkm = x.AltNonOvlFpkm / control.AltFpkm
+	out.AltOvlFpkmProp = x.AltOvlFpkmProp / control.AltFpkm
+	out.AltNonOvlFpkmProp = x.AltNonOvlFpkmProp / control.AltFpkm
+	return out
+}
+
+func DivideControlAltFpkmAll(it Iter[JsonOutStat], control JsonOutStat) *Iterator[JsonOutStat] {
+	return &Iterator[JsonOutStat]{Iteratef: func(yield func(JsonOutStat) error) error {
+		return it.Iterate(func(x JsonOutStat) error {
+			j := DivideControlAltFpkm(x, control)
+			return yield(j)
+		})
+	}}
+}
+
 func WriteMeansPath(path string, control, exp JsonOutStat) error {
 	h := func(e error) error {
 		return fmt.Errorf("WriteMeansPath: %w", e)
@@ -245,6 +278,7 @@ func FullSubtractControl() {
 	controlChr := flag.String("c", "", "Chromosome to use as control (required)")
 	inpath := flag.String("i", "", "Input path (default stdin)")
 	outmeanp := flag.String("mo", "", "Path to output means to (default discard)")
+	divp := flag.Bool("div", false, "divide all applicable results by the control alt fpkm")
 	flag.Parse()
 	if *controlChr == "" {
 		panic(fmt.Errorf("missing -c"))
@@ -270,12 +304,17 @@ func FullSubtractControl() {
 	defer func() { Must(r.Close()) }()
 
 	it = ParsePairvizOut(r)
-	subit := SubtractControlStatAll(it, cmean)
+	var transit Iter[JsonOutStat]
+	if *divp {
+		transit = DivideControlAltFpkmAll(it, cmean)
+	} else {
+		transit = SubtractControlStatAll(it, cmean)
+	}
 
 	w := bufio.NewWriter(os.Stdout)
 	defer w.Flush()
 	enc := json.NewEncoder(w)
-	err := subit.Iterate(func(j JsonOutStat) error {
+	err := transit.Iterate(func(j JsonOutStat) error {
 		return enc.Encode(j)
 	})
 	Must(err)
