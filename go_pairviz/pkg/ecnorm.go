@@ -1,6 +1,7 @@
 package pairviz
 
 import (
+	"github.com/jgbaldwinbrown/iter"
 	"math"
 	"bufio"
 	"flag"
@@ -60,8 +61,8 @@ func OpenMaybeGz(path string) (io.ReadCloser, error) {
 	return os.Open(path)
 }
 
-func ParsePairvizOut(r io.Reader) *Iterator[JsonOutStat] {
-	return &Iterator[JsonOutStat]{Iteratef: func(yield func(JsonOutStat) error) error {
+func ParsePairvizOut(r io.Reader) *iter.Iterator[JsonOutStat] {
+	return &iter.Iterator[JsonOutStat]{Iteratef: func(yield func(JsonOutStat) error) error {
 		dec := json.NewDecoder(r)
 		var j JsonOutStat
 		for err := dec.Decode(&j); err != io.EOF; err = dec.Decode(&j) {
@@ -164,7 +165,7 @@ func DivCounts(sums JsonOutStat, counts JsonOutStat) JsonOutStat {
 	return out
 }
 
-func GetControlStatMeans(controlChr string, it Iter[JsonOutStat]) (control, exp JsonOutStat, err error) {
+func GetControlStatMeans(controlChr string, it iter.Iter[JsonOutStat]) (control, exp JsonOutStat, err error) {
 	var sums JsonOutStat
 	var counts JsonOutStat
 
@@ -210,8 +211,8 @@ func SubtractControlStat(x JsonOutStat, control JsonOutStat) JsonOutStat {
 	return out
 }
 
-func SubtractControlStatAll(it Iter[JsonOutStat], control JsonOutStat) *Iterator[JsonOutStat] {
-	return &Iterator[JsonOutStat]{Iteratef: func(yield func(JsonOutStat) error) error {
+func SubtractControlStatAll(it iter.Iter[JsonOutStat], control JsonOutStat) *iter.Iterator[JsonOutStat] {
+	return &iter.Iterator[JsonOutStat]{Iteratef: func(yield func(JsonOutStat) error) error {
 		return it.Iterate(func(x JsonOutStat) error {
 			j := SubtractControlStat(x, control)
 			return yield(j)
@@ -243,8 +244,8 @@ func DivideControlAltFpkm(x JsonOutStat, control JsonOutStat) JsonOutStat {
 	return out
 }
 
-func DivideControlAltFpkmAll(it Iter[JsonOutStat], control JsonOutStat) *Iterator[JsonOutStat] {
-	return &Iterator[JsonOutStat]{Iteratef: func(yield func(JsonOutStat) error) error {
+func DivideControlAltFpkmAll(it iter.Iter[JsonOutStat], control JsonOutStat) *iter.Iterator[JsonOutStat] {
+	return &iter.Iterator[JsonOutStat]{Iteratef: func(yield func(JsonOutStat) error) error {
 		return it.Iterate(func(x JsonOutStat) error {
 			j := DivideControlAltFpkm(x, control)
 			return yield(j)
@@ -304,7 +305,7 @@ func FullSubtractControl() {
 	defer func() { Must(r.Close()) }()
 
 	it = ParsePairvizOut(r)
-	var transit Iter[JsonOutStat]
+	var transit iter.Iter[JsonOutStat]
 	if *divp {
 		transit = DivideControlAltFpkmAll(it, cmean)
 	} else {
