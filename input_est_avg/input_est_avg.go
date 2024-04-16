@@ -1,6 +1,8 @@
 package main
 
 import (
+	"strings"
+	"flag"
 	"fmt"
 	"encoding/json"
 	"os"
@@ -20,6 +22,7 @@ type Ests struct {
 	TissueInput float64
 	EcoliInput float64
 	AltFpkm float64
+	PcrCycles float64
 
 	InputEsts []float64
 	InputMean float64
@@ -99,6 +102,9 @@ func MakePredictors(es ...Ests) {
 
 	for i, e := range es {
 		es[i].Predictor = make([]float64, len(ext) + len(hic) + 3)
+		for j, _ := range es[i].Predictor {
+			es[i].Predictor[j] = -1.0
+		}
 		es[i].Predictor[e.ExtractBatch] = 1.0
 		es[i].Predictor[e.HicBatch + len(ext)] = 1.0
 		es[i].Predictor[len(ext) + len(hic)] = e.InputMean
@@ -127,7 +133,23 @@ func Regress(es ...Ests) *regression.Regression {
 	return r
 }
 
-func main() {
+type Flags struct {
+	ToTable bool
+}
+
+func Full() {
+	var f Flags
+	flag.BoolVar(&f.ToTable, "t", false, "Write regression info to table for regressing in R")
+	flag.Parse()
+
+	if f.ToTable {
+		FullTable(f)
+	} else {
+		FullRegress(f)
+	}
+}
+
+func FullRegress(f Flags) {
 	dec := json.NewDecoder(os.Stdin)
 
 	var est Ests
@@ -198,4 +220,82 @@ func main() {
 	fmt.Println(r)
 	fmt.Println(r.GetCoeffs())
 	fmt.Println(r.Formula)
+}
+
+func Header() string {
+	return "name\textract_batch\thic_batch\tgenotype\ttissue\ttissue_input\tecoli_input\talt_fpkm\tinput_mean\thic_mean\tpost_size_mean\tfinal_mean\tpcr_cycles\thybrid"
+}
+
+func Hybridify(geno string) string {
+	switch geno {
+	case "a7xn": return "hybrid"
+	case "hxw": return "hybrid"
+	case "ixa4": return "pure"
+	case "ixa7": return "pure"
+	case "ixl": return "hybrid"
+	case "ixs": return "sawamura"
+	case "ixw": return "hybrid"
+	case "mxw": return "pure"
+	case "nxw": return "pure"
+	case "sxw": return "sawamura"
+	default: return ""
+	}
+}
+
+func OutList(e Ests) []any {
+	return []any{
+		e.Name,
+		fmt.Sprintf(`"%v"`, e.ExtractBatch),
+		fmt.Sprintf(`"%v"`, e.HicBatch),
+		e.Geno,
+		e.Tissue,
+		e.TissueInput,
+		e.EcoliInput,
+		e.AltFpkm,
+		e.InputMean,
+		e.HicMean,
+		e.PostSizeMean,
+		e.FinalMean,
+		e.PcrCycles,
+		Hybridify(e.Geno),
+	}
+}
+
+func JoinAny(as ...any) string {
+	var b strings.Builder
+	if len(as) > 0 {
+		fmt.Fprint(&b, as[0])
+	}
+	for _, a := range as[1:] {
+		fmt.Fprintf(&b, "\t%v", a)
+	}
+	return b.String()
+}
+
+func FullTable(f Flags) {
+	dec := json.NewDecoder(os.Stdin)
+
+	var est Ests
+	var ests []Ests
+	for e := dec.Decode(&est); e != io.EOF; e = dec.Decode(&est) {
+		if e != nil {
+			panic(e)
+		}
+		est.InputMean = Mean(est.InputEsts...)
+		est.HicMean = Mean(est.HicEsts...)
+		est.PostSizeMean = Mean(est.PostSizeEsts...)
+		est.FinalMean = Mean(est.FinalEsts...)
+		ests = append(ests, est)
+	}
+
+	fmt.Println(Header())
+	for _, est := range ests {
+		if _, e := fmt.Println(JoinAny(OutList(est)...)); e != nil {
+			panic(e)
+		}
+	}
+}
+
+func main() {
+	Full()
 }
