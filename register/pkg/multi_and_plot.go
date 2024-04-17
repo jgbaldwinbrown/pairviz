@@ -1,6 +1,7 @@
 package register
 
 import (
+	"path/filepath"
 	"context"
 	"os/exec"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 )
 
 type Job struct {
+	Register bool
 	Inpath string
 	Outpath string
 	Plot bool
@@ -61,16 +63,24 @@ func RunPlot(ctx context.Context, j Job) error {
 }
 
 func RunJob(ctx context.Context, j Job) error {
-	e := RunPaths(j.Maxdist, j.Inpath, j.Outpath)
+	dir := filepath.Dir(j.Outpath)
+	e := os.MkdirAll(dir, 0777)
 	if e != nil {
 		return e
 	}
 
-	if !j.Plot {
-		return nil
+	if j.Register {
+		e = RunPaths(j.Maxdist, j.Inpath, j.Outpath)
+		if e != nil {
+			return e
+		}
 	}
 
-	return RunPlot(ctx, j)
+	if j.Plot {
+		return RunPlot(ctx, j)
+	}
+
+	return nil
 }
 
 func RegisterMulti(ctx context.Context, threads int, jobs ...Job) error {
