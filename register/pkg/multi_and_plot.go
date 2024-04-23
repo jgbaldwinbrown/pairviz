@@ -19,6 +19,7 @@ type Job struct {
 	Outpath string
 	Plot bool
 	Plotoutpath string
+	DirPlotoutpath string
 	Plotname string
 	Mindist int64
 	Maxdist int64
@@ -62,6 +63,19 @@ func RunPlot(ctx context.Context, j Job) error {
 	return cmd.Run()
 }
 
+func RunDirPlot(ctx context.Context, j Job) error {
+	cmd := exec.CommandContext(
+		ctx,
+		"plotregisters_dir",
+		j.Outpath, j.DirPlotoutpath, j.Plotname,
+		fmt.Sprintf("%v", j.Mindist),
+		fmt.Sprintf("%v", j.Maxdist),
+	)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
 func RunJob(ctx context.Context, j Job) error {
 	dir := filepath.Dir(j.Outpath)
 	e := os.MkdirAll(dir, 0777)
@@ -77,7 +91,11 @@ func RunJob(ctx context.Context, j Job) error {
 	}
 
 	if j.Plot {
-		return RunPlot(ctx, j)
+		e := RunPlot(ctx, j)
+		if e != nil {
+			return e
+		}
+		return RunDirPlot(ctx, j)
 	}
 
 	return nil
