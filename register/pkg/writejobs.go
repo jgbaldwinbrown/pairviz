@@ -1,6 +1,7 @@
 package register
 
 import (
+	"flag"
 	"encoding/json"
 	"io"
 	"os"
@@ -66,6 +67,25 @@ func MakeArgs(maxdist int64, namerefs ...NameRef) []Job {
 			Outpath: fmt.Sprintf("%v_to_%v_rehead_registers_max%v.txt", nr.Name, nr.Ref, BpFormat(maxdist)),
 			Plot: true,
 			Plotoutpath: fmt.Sprintf("%v_to_%v_rehead_registers_max%v.pdf", nr.Name, nr.Ref, BpFormat(maxdist)),
+			DirPlotoutpath: fmt.Sprintf("%v_to_%v_rehead_registers_max%v_dir.pdf", nr.Name, nr.Ref, BpFormat(maxdist)),
+			Plotname: Pnames(nr.Name),
+			Mindist: 0,
+			Maxdist: maxdist,
+		})
+	}
+	return as
+}
+
+func MakeArgsFinal(maxdist int64, namerefs ...NameRef) []Job {
+	as := make([]Job, 0, len(namerefs))
+	for _, nr := range namerefs {
+		as = append(as, Job{
+			Register: false,
+			Inpath: fmt.Sprintf("../../rehead/%v_to_%v_rehead.pairs.gz", nr.Name, nr.Ref),
+			Outpath: fmt.Sprintf("%v_to_%v/%v_to_%v_rehead_registers_max%v.txt", nr.Name, nr.Ref, nr.Name, nr.Ref, BpFormat(maxdist)),
+			Plot: true,
+			Plotoutpath: fmt.Sprintf("%v_to_%v/%v_to_%v_rehead_registers_max%v.pdf", nr.Name, nr.Ref, nr.Name, nr.Ref, BpFormat(maxdist)),
+			DirPlotoutpath: fmt.Sprintf("%v_to_%v/%v_to_%v_rehead_registers_max%v_dir.pdf", nr.Name, nr.Ref, nr.Name, nr.Ref, BpFormat(maxdist)),
 			Plotname: Pnames(nr.Name),
 			Mindist: 0,
 			Maxdist: maxdist,
@@ -86,8 +106,8 @@ func MakeMicroArgs() []Job {
 	return MakeArgs(10000, NameRef{"nxw_adult_micro", "nxw"}, NameRef{"nxw_sal_micro", "nxw"})
 }
 
-func MakeFullArgs() []Job {
-	return MakeArgs(3000,
+func MakeFullNameRefs() []NameRef {
+	return []NameRef {
 		NameRef{"ixw_sal", "ixw"}, NameRef{"ixw_adult", "ixw"}, NameRef{"ixw_brain", "ixw"}, NameRef{"ixw_fat", "ixw"},
 		NameRef{"ixa4_sal", "ixa4"}, NameRef{"ixa4_adult", "ixa4"}, NameRef{"ixa4_brain", "ixa4"}, NameRef{"ixa4_fat", "ixa4"},
 		NameRef{"ixa7_sal", "ixa7"}, NameRef{"ixa7_adult", "ixa7"},
@@ -97,7 +117,15 @@ func MakeFullArgs() []Job {
 		NameRef{"mxw_sal", "mxw"}, NameRef{"mxw_adult", "mxw"},
 		NameRef{"hxw_sal", "ixw"}, NameRef{"ixl_sal", "ixw"},
 		NameRef{"ixs_sal", "ixs"}, NameRef{"sxw_sal", "sxw"},
-	)
+	}
+}
+
+func MakeFullArgs() []Job {
+	return MakeArgs(3000, MakeFullNameRefs()...)
+}
+
+func MakeFullArgsFinal() []Job {
+	return MakeArgsFinal(3000, MakeFullNameRefs()...)
 }
 
 func PrintAllJobs(w io.Writer, jobs []Job) error {
@@ -112,9 +140,25 @@ func PrintAllJobs(w io.Writer, jobs []Job) error {
 	return nil
 }
 
+type Flags struct {
+	Final bool
+}
+
 func FullPrintJobs() {
-	if e := PrintAllJobs(os.Stdout, MakeFullArgs()); e != nil {
+	var f Flags
+	flag.BoolVar(&f.Final, "f", false, "Final version")
+	flag.Parse()
+
+	var args []Job
+	if f.Final {
+		args = MakeFullArgsFinal()
+	} else {
+		args = MakeFullArgs()
+	}
+
+	if e := PrintAllJobs(os.Stdout, args); e != nil {
 		panic(e)
 	}
 }
 
+// ../../rehead/ixw_brain_to_ixw_rehead.pairs.gz
