@@ -1,6 +1,7 @@
 package windif
 
 import (
+	"fmt"
 	"os"
 	"io"
 	"github.com/jgbaldwinbrown/fastats/pkg"
@@ -67,20 +68,23 @@ func AppendBlastStats(r io.Reader, stats []BlastStat) ([]BlastStat, error) {
 }
 
 func BestBitscore(wp Winpair) (int64, error) {
+	h := func(e error) (int64, error) {
+		return 0, fmt.Errorf("BestBitscore: %w", e)
+	}
 	ec := make(chan error)
 	bl, del, e := Blast(
 		[]fastats.FaEntry{wp.Fa1},
 		[]fastats.FaEntry{wp.Fa2},
 	)
 	if e != nil {
-		return 0, e
+		return h(e)
 	}
 	defer del()
 
 	bl.Stderr = os.Stderr
 	pr, e := bl.StdoutPipe()
 	if e != nil {
-		return 0, e
+		return h(e)
 	}
 
 	go func() {
@@ -90,7 +94,7 @@ func BestBitscore(wp Winpair) (int64, error) {
 	var stats []BlastStat
 	stats, e = AppendBlastStats(pr, stats)
 	if e != nil {
-		return 0, e
+		return h(e)
 	}
 	var best int64
 	for _, stat := range stats {

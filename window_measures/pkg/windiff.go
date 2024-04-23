@@ -1,6 +1,7 @@
 package windif
 
 import (
+	"fmt"
 	"encoding/json"
 	"github.com/jgbaldwinbrown/fastats/pkg"
 	"github.com/jgbaldwinbrown/csvh"
@@ -97,6 +98,9 @@ func WriteStats(w io.Writer, wss ...WinpairStat) error {
 
 func WinpairStats(wp Winpair) (WinpairStat, error) {
 	var s WinpairStat
+	h := func(e error) (WinpairStat, error) {
+		return WinpairStat{}, fmt.Errorf("WinpairStats: %w", e)
+	}
 	var e error
 	log.Println("starting runs")
 	s.RunsPerBp = RunsPerBp(wp, 100)
@@ -105,7 +109,7 @@ func WinpairStats(wp Winpair) (WinpairStat, error) {
 	log.Println("finished triplets")
 	s.MummerMatchBp, e = MummerMatchBp(wp)
 	if e != nil {
-		return s, e
+		return h(e)
 	}
 	log.Println("finished mummer")
 	s.BlastBitscore, e = BestBitscore(wp)

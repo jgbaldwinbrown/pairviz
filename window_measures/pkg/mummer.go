@@ -1,6 +1,9 @@
 package windif
 
 import (
+	"strings"
+	"fmt"
+	"bufio"
 	"regexp"
 	"io"
 	"os/exec"
@@ -13,16 +16,16 @@ import (
 func Mummer(sub, quer []fastats.FaEntry) (cmd *exec.Cmd, del func(), err error) {
 	dir, e := os.MkdirTemp(".", "blast_*_dir")
 	if e != nil {
-		return nil, nil, e
+		return nil, nil, fmt.Errorf("Mummer: os.MkdirTemp: %w", e)
 	}
 
 	spath := filepath.Join(dir, "sub.fa")
 	if e := WriteFaPath(spath, sub); e != nil {
-		return nil, nil, e
+		return nil, nil, fmt.Errorf("Mummer: WriteFaPath: %w", e)
 	}
 	qpath := filepath.Join(dir, "quer.fa")
 	if e := WriteFaPath(qpath, quer); e != nil {
-		return nil, nil, e
+		return nil, nil, fmt.Errorf("Mummer: WriteFaPath2: %w", e)
 	}
 
 	cmd = exec.Command("mummer", "-b", spath, qpath)
@@ -38,27 +41,27 @@ type MummerMatch struct {
 }
 
 var headRe = regexp.MustCompile(`^> (.*)`)
+var whiteRe = regexp.MustCompile(`[ \t\n]+`)
 
 func AppendMummerMatches(r io.Reader, matches []MummerMatch) ([]MummerMatch, error) {
 	chr := ""
-	cr := csvh.CsvIn(r)
-	for l, e := cr.Read(); e != io.EOF; l, e = cr.Read() {
-		if e != nil {
-			return nil, e
+	s := bufio.NewScanner(r)
+	s.Buffer([]byte{}, 1e12)
+	for s.Scan() {
+		if s.Err() != nil {
+			return nil, fmt.Errorf("AppendMummerMatches s.Err(): %w", s.Err())
 		}
-		if len(l) > 0 {
-			head := headRe.FindStringSubmatch(l[0])
-			if head != nil {
-				chr = head[1]
-				continue
-			}
+		if head := headRe.FindStringSubmatch(s.Text()); head != nil {
+			chr = head[1]
+			continue
 		}
 
+		fields := whiteRe.Split(s.Text(), -1)
 		var m MummerMatch
 		m.QChr = chr
-		_, e := csvh.Scan(l, &m.RStart, &m.QStart, &m.Length)
+		_, e := csvh.Scan(fields[1:], &m.RStart, &m.QStart, &m.Length)
 		if e != nil {
-			return nil, e
+			return nil, fmt.Errorf("AppendMummerMatches: csvh.Scan: %w", e)
 		}
 		matches = append(matches, m)
 	}
@@ -66,30 +69,31 @@ func AppendMummerMatches(r io.Reader, matches []MummerMatch) ([]MummerMatch, err
 }
 
 func MummerMatchBp(wp Winpair) (int64, error) {
-	ec := make(chan error)
+	h := func(e error) (int64, error) {
+		return 0, fmt.Errorf("MummerMatchBp: %w", e)
+	}
 	bl, del, e := Mummer(
 		[]fastats.FaEntry{wp.Fa1},
 		[]fastats.FaEntry{wp.Fa2},
 	)
 	if e != nil {
-		return 0, e
+		return h(e)
 	}
 	defer del()
 
 	bl.Stderr = os.Stderr
-	pr, e := bl.StdoutPipe()
+
+	var b strings.Builder
+	bl.Stdout = &b
+	e = bl.Run()
 	if e != nil {
-		return 0, e
+		return h(fmt.Errorf("bl.Run(): %w", e))
 	}
 
-	go func() {
-		ec <- bl.Run()
-	}()
-
 	var stats []MummerMatch
-	stats, e = AppendMummerMatches(pr, stats)
+	stats, e = AppendMummerMatches(strings.NewReader(b.String()), stats)
 	if e != nil {
-		return 0, e
+		return h(e)
 	}
 	var sum int64
 	for _, stat := range stats {
