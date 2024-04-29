@@ -136,7 +136,7 @@ func Run() {
 		if e != nil {
 			return e
 		}
-		e = WriteStats(w, stats...)
+		e = WriteStats(w, stat)
 		if e != nil {
 			return e
 		}
