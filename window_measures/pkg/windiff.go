@@ -123,18 +123,6 @@ func Run() {
 		log.Fatal(e)
 	}
 	it := Winpairs(paths)
-	var stats []WinpairStat
-	e = it.Iterate(func(wp Winpair) error {
-		stat, e := WinpairStats(wp)
-		if e != nil {
-			return e
-		}
-		stats = append(stats, stat)
-		return nil
-	})
-	if e != nil {
-		log.Fatal(e)
-	}
 
 	w := bufio.NewWriter(os.Stdout)
 	defer func() {
@@ -143,10 +131,21 @@ func Run() {
 			log.Fatal(e)
 		}
 	}()
-	e = WriteStats(w, stats...)
+	e = it.Iterate(func(wp Winpair) error {
+		stat, e := WinpairStats(wp)
+		if e != nil {
+			return e
+		}
+		e = WriteStats(w, stats...)
+		if e != nil {
+			return e
+		}
+		return nil
+	})
 	if e != nil {
 		log.Fatal(e)
 	}
+
 }
 
 // temp/mummer/melref2sim/mummer_out_melref2sim.delta: raw_data/individual_strain_assemblies/iso1/dmel_rel6_sorted_ne>
