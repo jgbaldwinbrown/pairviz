@@ -41,7 +41,10 @@ type Args struct {
 	Outpre string
 	Threads int
 	Paircol int
-	PredictOnly bool
+	Prepare bool
+	Cleanup bool
+	Combine bool
+	Predict bool
 }
 
 func (a Args) CrossPrepFlags(i int) PrepFaFlags {
@@ -125,11 +128,15 @@ func CleanupCtx(ctx context.Context, arg Args, i int) error {
 }
 
 func RunSeparate(ctx context.Context, arg Args, i int) error {
-	if e := PrepareCtx(ctx, arg, i); e != nil {
-		return e;
+	if arg.Prepare {
+		if e := PrepareCtx(ctx, arg, i); e != nil {
+			return e;
+		}
 	}
-	if e := CleanupCtx(ctx, arg, i); e != nil {
-		return e
+	if arg.Cleanup {
+		if e := CleanupCtx(ctx, arg, i); e != nil {
+			return e
+		}
 	}
 	return nil
 }
@@ -203,7 +210,7 @@ func TensorflowPredict(ctx context.Context, w io.Writer, f TensorflowFlags) erro
 // pigz -p 8 > predicted.txt.gz
 
 func Join(ctx context.Context, args Args) error {
-	if !args.PredictOnly {
+	if args.Combine {
 		fa1s := make([]string, 0, len(args.Crosses))
 		fa2s := make([]string, 0, len(args.Crosses))
 		beds := make([]string, 0, len(args.Crosses))
@@ -228,16 +235,19 @@ func Join(ctx context.Context, args Args) error {
 		}
 	}
 
-	targ := args.TensorflowArgs()
-	outp := args.Outpre + "_out.txt.gz"
-	w, e := csvh.CreateMaybeGz(outp)
-	if e != nil {
-		return e
+	if args.Predict {
+		targ := args.TensorflowArgs()
+		outp := args.Outpre + "_out.txt.gz"
+		w, e := csvh.CreateMaybeGz(outp)
+		if e != nil {
+			return e
+		}
+		defer w.Close()
+		bw := bufio.NewWriter(w)
+		defer bw.Flush()
+		return TensorflowPredict(ctx, bw, targ)
 	}
-	defer w.Close()
-	bw := bufio.NewWriter(w)
-	defer bw.Flush()
-	return TensorflowPredict(ctx, bw, targ)
+	return nil
 }
 
 func GetArgs(r io.Reader) (Args, error) {
@@ -247,30 +257,50 @@ func GetArgs(r io.Reader) (Args, error) {
 	return a, e
 }
 
+type FullFlags struct {
+	NoPrepare bool
+	NoCleanup bool
+	NoPredict bool
+	NoCombine bool
+	PredictOnly bool
+}
+
 func RunPrepAndClean() {
-	predictOnlyp := flag.Bool("p", false, "Only run prediction, assume setup is already complete")
+	var f FullFlags
+	flag.BoolVar(&f.PredictOnly, "p", false, "Only run prediction, assume setup is already complete")
+	flag.BoolVar(&f.NoPrepare, "noprep", false, "Do not run prepare step")
+	flag.BoolVar(&f.NoCleanup, "noclean", false, "Do not run cleanup step")
+	flag.BoolVar(&f.NoCombine, "nocombine", false, "Do not run combining step")
+	flag.BoolVar(&f.NoPredict, "nopredict", false, "Do not run prediction step")
 	flag.Parse()
 
 	args, e := GetArgs(os.Stdin)
 	if e != nil {
 		log.Fatal(e)
 	}
+	args.Prepare = !f.NoPrepare
+	args.Cleanup = !f.NoCleanup
+	args.Predict = !f.NoPredict
 
-	if *predictOnlyp {
-		args.PredictOnly = true
+	if f.PredictOnly {
+		args.Prepare = false
+		args.Cleanup = false
+		args.Combine = false
 	}
 
 	ctx, closef := context.WithCancel(context.Background())
 	sigend := StartSignalhandler(closef)
 	defer sigend()
 
-	if !args.PredictOnly {
+	if args.Prepare || args.Cleanup {
 		if e = RunSeparates(ctx, args); e != nil {
 			log.Fatal(e)
 		}
 	}
 
-	if e = Join(ctx, args); e != nil {
-		log.Fatal(e)
+	if args.Predict || args.Combine {
+		if e = Join(ctx, args); e != nil {
+			log.Fatal(e)
+		}
 	}
 }
