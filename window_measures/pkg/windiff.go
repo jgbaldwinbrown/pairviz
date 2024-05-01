@@ -47,7 +47,7 @@ func Runs(wp Winpair) []fastats.Span {
 	for i, c := range []byte(wp.Fa1.Seq) {
 		end = int64(i)
 		d := wp.Fa2.Seq[i]
-		if c != d {
+		if !BaseMatch(c, d) {
 			if start != end {
 				out = append(out, fastats.Span{Start: start, End: end})
 			}
@@ -77,11 +77,28 @@ func RunsPerBp(wp Winpair, min int64) float64 {
 	return float64(count) / float64(len(wp.Fa1.Seq))
 }
 
+func PerfectMatches(wp Winpair) int64 {
+	var sum int64 = 0
+	for i, c := range []byte(wp.Fa1.Seq) {
+		d := wp.Fa2.Seq[i]
+		if BaseMatch(c, d) {
+			sum++
+		}
+	}
+	return sum
+}
+
+func Identity(wp Winpair) float64 {
+	ms := PerfectMatches(wp)
+	return float64(ms) / float64(len(wp.Fa1.Seq))
+}
+
 type WinpairStat struct {
 	TripletsPerBp float64
 	RunsPerBp float64
 	MummerMatchBp int64
 	BlastBitscore int64
+	Identity float64
 }
 
 func WriteStats(w io.Writer, wss ...WinpairStat) error {
@@ -107,6 +124,9 @@ func WinpairStats(wp Winpair) (WinpairStat, error) {
 	log.Println("finished runs")
 	s.TripletsPerBp = TripletsPerBp(wp, 100, 1)
 	log.Println("finished triplets")
+	s.Identity = Identity(wp)
+	log.Println("finished identity")
+
 	s.MummerMatchBp, e = MummerMatchBp(wp)
 	if e != nil {
 		return h(e)
