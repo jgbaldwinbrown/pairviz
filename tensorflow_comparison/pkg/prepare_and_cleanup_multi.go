@@ -280,6 +280,7 @@ func RunPrepAndClean() {
 	}
 	args.Prepare = !f.NoPrepare
 	args.Cleanup = !f.NoCleanup
+	args.Combine = !f.NoCombine
 	args.Predict = !f.NoPredict
 
 	if f.PredictOnly {
