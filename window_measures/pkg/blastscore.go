@@ -1,6 +1,7 @@
 package windif
 
 import (
+	"strings"
 	"fmt"
 	"os"
 	"io"
@@ -71,7 +72,6 @@ func BestBitscore(wp Winpair) (int64, error) {
 	h := func(e error) (int64, error) {
 		return 0, fmt.Errorf("BestBitscore: %w", e)
 	}
-	ec := make(chan error)
 	bl, del, e := Blast(
 		[]fastats.FaEntry{wp.Fa1},
 		[]fastats.FaEntry{wp.Fa2},
@@ -82,17 +82,15 @@ func BestBitscore(wp Winpair) (int64, error) {
 	defer del()
 
 	bl.Stderr = os.Stderr
-	pr, e := bl.StdoutPipe()
-	if e != nil {
-		return h(e)
+	var b strings.Builder
+	bl.Stdout = &b
+
+	if e := bl.Run(); e != nil {
+		return 0, nil
 	}
 
-	go func() {
-		ec <- bl.Run()
-	}()
-
 	var stats []BlastStat
-	stats, e = AppendBlastStats(pr, stats)
+	stats, e = AppendBlastStats(strings.NewReader(b.String()), stats)
 	if e != nil {
 		return h(e)
 	}

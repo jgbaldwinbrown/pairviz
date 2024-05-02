@@ -1,15 +1,19 @@
 package windif
 
 import (
+	"flag"
 	"fmt"
 	"encoding/json"
 	"github.com/jgbaldwinbrown/fastats/pkg"
 	"github.com/jgbaldwinbrown/csvh"
-	"bufio"
+	// "bufio"
 	"io"
 	"os"
 	"log"
 	"strings"
+	"github.com/jgbaldwinbrown/parallel_ordered"
+	"github.com/jgbaldwinbrown/iter"
+	"golang.org/x/sync/errgroup"
 )
 
 func ReadLines(r io.Reader) ([]string, error) {
@@ -119,62 +123,94 @@ func WinpairStats(wp Winpair) (WinpairStat, error) {
 		return WinpairStat{}, fmt.Errorf("WinpairStats: %w", e)
 	}
 	var e error
-	log.Println("starting runs")
 	s.RunsPerBp = RunsPerBp(wp, 100)
-	log.Println("finished runs")
 	s.TripletsPerBp = TripletsPerBp(wp, 100, 1)
-	log.Println("finished triplets")
 	s.Identity = Identity(wp)
-	log.Println("finished identity")
 
 	s.MummerMatchBp, e = MummerMatchBp(wp)
 	if e != nil {
 		return h(e)
 	}
-	log.Println("finished mummer")
 	s.BlastBitscore, e = BestBitscore(wp)
-	log.Println("finished blast")
 	return s, e
 }
 
+type WindiffFlags struct {
+	Threads int
+}
+
 func Run() {
+	var f WindiffFlags
+	flag.IntVar(&f.Threads, "t", -1, "Threads to use (default infinite)")
+	flag.Parse()
+
 	paths, e := ReadLines(os.Stdin)
 	if e != nil {
 		log.Fatal(e)
 	}
 	it := Winpairs(paths)
 
-	w := bufio.NewWriter(os.Stdout)
+	w := os.Stdout
+	// w := bufio.NewWriter(os.Stdout)
+	// defer func() {
+	// 	e := w.Flush()
+	// 	if e != nil {
+	// 		log.Fatal(e)
+	// 	}
+	// }()
+
+	o := po.NewOrderer[po.IndexedVal[WinpairStat]](1024)
+	var g errgroup.Group
+	if f.Threads > 0 {
+		g.SetLimit(f.Threads)
+	}
+
+	writeI := 0
+	writeErr := make(chan error)
+	go func() {
+		for val, ok := o.Read(); ok; val, ok = o.Read() {
+			e := WriteStats(w, val.Val)
+			if e != nil {
+				writeErr <- e
+				return
+			}
+			writeI++
+		}
+		writeErr <- nil
+		return
+	}()
+
+	i := 0
+	puller := iter.Pull[Winpair](it, 256)
 	defer func() {
-		e := w.Flush()
+		e := puller.Close()
 		if e != nil {
 			log.Fatal(e)
 		}
 	}()
-	e = it.Iterate(func(wp Winpair) error {
-		stat, e := WinpairStats(wp)
+	for wp, e := puller.Next(); e != io.EOF; wp, e = puller.Next() {
 		if e != nil {
-			return e
+			log.Fatal(e)
 		}
-		e = WriteStats(w, stat)
-		if e != nil {
-			return e
-		}
-		return nil
-	})
-	if e != nil {
-		log.Fatal(e)
+		j := i
+		g.Go(func() error {
+			k := j
+			stat, e := WinpairStats(wp)
+			if e != nil {
+				return e
+			}
+			o.Write(po.IndexedVal[WinpairStat]{Val: stat, I: k})
+			return nil
+		})
+		i++
 	}
 
-}
+	if e := g.Wait(); e != nil {
+		log.Fatal(e)
+	}
+	o.Close()
 
-// temp/mummer/melref2sim/mummer_out_melref2sim.delta: raw_data/individual_strain_assemblies/iso1/dmel_rel6_sorted_ne>
-//         mkdir -p `dirname $@`
-//         nucmer -l 100 -prefix temp/mummer/melref2sim/mummer_out_melref2sim $^
-// temp/mummer/melref2sim/mummer_out_melref2sim.rq.delta: temp/mummer/melref2sim/mummer_out_melref2sim.delta
-//         mkdir -p `dirname $@`
-//         delta-filter -i 95 -r -q $< > $@
-// temp/mummer/melref2sim/mummer_out_melref2sim.coords: temp/mummer/melref2sim/mummer_out_melref2sim.rq.delta
-//         show-coords -o -l -r $< > $@
-// temp/mummer/melref2sim/mummer_out_melref2sim.coords.tsv: temp/mummer/melref2sim/mummer_out_melref2sim.rq.delta
-//         show-coords -o -l -r -T $< > $@
+	if e := <-writeErr; e != nil {
+		log.Fatal(e)
+	}
+}

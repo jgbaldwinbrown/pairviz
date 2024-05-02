@@ -9,6 +9,7 @@ require (
 	github.com/jgbaldwinbrown/fasttsv v0.1.1
 	github.com/jgbaldwinbrown/iter v0.1.5
 	github.com/jgbaldwinbrown/lscan v0.1.0
+	github.com/jgbaldwinbrown/parallel_ordered v0.0.0-20240501182610-d39954467a28
 	github.com/jgbaldwinbrown/slide v0.1.1
 	github.com/montanaflynn/stats v0.7.1
 	github.com/sajari/regression v1.0.1

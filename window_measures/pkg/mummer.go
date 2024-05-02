@@ -81,7 +81,7 @@ func MummerMatchBp(wp Winpair) (int64, error) {
 	}
 	defer del()
 
-	bl.Stderr = os.Stderr
+	// bl.Stderr = os.Stderr
 
 	var b strings.Builder
 	bl.Stdout = &b
