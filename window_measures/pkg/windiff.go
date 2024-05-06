@@ -98,11 +98,11 @@ func Identity(wp Winpair) float64 {
 }
 
 type WinpairStat struct {
-	TripletsPerBp float64
-	RunsPerBp float64
+	TripletsPerBp Float
+	RunsPerBp Float
 	MummerMatchBp int64
 	BlastBitscore int64
-	Identity float64
+	Identity Float
 }
 
 func WriteStats(w io.Writer, wss ...WinpairStat) error {
@@ -123,16 +123,21 @@ func WinpairStats(wp Winpair) (WinpairStat, error) {
 		return WinpairStat{}, fmt.Errorf("WinpairStats: %w", e)
 	}
 	var e error
-	s.RunsPerBp = RunsPerBp(wp, 100)
-	s.TripletsPerBp = TripletsPerBp(wp, 100, 1)
-	s.Identity = Identity(wp)
+	s.RunsPerBp.F = RunsPerBp(wp, 100)
+	s.TripletsPerBp.F = TripletsPerBp(wp, 100, 1)
+	s.Identity.F = Identity(wp)
 
 	s.MummerMatchBp, e = MummerMatchBp(wp)
 	if e != nil {
-		return h(e)
+		log.Println(h(e))
+		s.MummerMatchBp = -1
 	}
 	s.BlastBitscore, e = BestBitscore(wp)
-	return s, e
+	if e != nil {
+		log.Println(h(e))
+		s.BlastBitscore = -1
+	}
+	return s, nil
 }
 
 type WindiffFlags struct {
