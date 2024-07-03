@@ -3,7 +3,6 @@ package prepfa
 import (
 	"fmt"
 	"github.com/jgbaldwinbrown/fastats/pkg"
-	"github.com/jgbaldwinbrown/iter"
 	"testing"
 	"strings"
 	"reflect"
@@ -25,14 +24,16 @@ var output2 = []fastats.FaEntry{fastats.FaEntry{Header: "1", Seq: "atgtcagt"}}
 
 func TestGetFa(t *testing.T) {
 	fa := fastats.ParseFasta(strings.NewReader(input1))
-	fa.Iterate(func(f fastats.FaEntry) error {
+	for f, err := range fa {
+		if err != nil {
+			panic(err)
+		}
 		fmt.Println("entry:", f)
-		return nil
-	})
+	}
 }
 
 func TestBuildFas(t *testing.T) {
-	fa, err := iter.Collect[fastats.FaEntry](fastats.ParseFasta(strings.NewReader(input1)))
+	fa, err := CollectErr(fastats.ParseFasta(strings.NewReader(input1)))
 	if err != nil {
 		panic(err)
 	}
@@ -43,7 +44,7 @@ func TestBuildFas(t *testing.T) {
 		panic(err)
 	}
 	it2 := SubsetVCFCols(it1, 0, 1)
-	vcf, err := iter.Collect[fastats.VcfEntry[[]string]](it2)
+	vcf, err := CollectErr(it2)
 	if err != nil {
 		panic(err)
 	}

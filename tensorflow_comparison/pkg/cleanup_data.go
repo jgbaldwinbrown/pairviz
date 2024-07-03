@@ -6,7 +6,7 @@ import (
 	"strings"
 	"bufio"
 	"github.com/jgbaldwinbrown/fastats/pkg"
-	"github.com/jgbaldwinbrown/iter"
+	"iter"
 	"github.com/jgbaldwinbrown/csvh"
 	"flag"
 	"regexp"
@@ -14,28 +14,53 @@ import (
 	"fmt"
 )
 
-var parentRe = regexp.MustCompile(`_(.*)$`)
-
-func FilterChrParent[T any](parent string, it iter.Iter[fastats.BedEntry[T]]) *iter.Iterator[fastats.BedEntry[T]] {
-	return &iter.Iterator[fastats.BedEntry[T]]{Iteratef: func(yield func(fastats.BedEntry[T]) error) error {
-		return it.Iterate(func(b fastats.BedEntry[T]) error {
-			fields := parentRe.FindStringSubmatch(b.Chr)
-			if fields == nil {
-				return nil
-			}
-			if fields[1] != parent {
-				return nil
-			}
-			return yield(b)
-		})
-	}}
+func CollectErr[T any](it iter.Seq2[T, error]) ([]T, error) {
+	var o []T
+	for t, e := range it {
+		if e != nil {
+			return nil, e
+		}
+		o = append(o, t)
+	}
+	return o, nil
 }
 
-func StripChrParent[T any](it iter.Iter[fastats.BedEntry[T]]) *iter.Iterator[fastats.BedEntry[T]] {
-	return iter.Transform[fastats.BedEntry[T], fastats.BedEntry[T]](it, func(f fastats.BedEntry[T]) (fastats.BedEntry[T], error) {
-		f.Chr = parentRe.ReplaceAllString(f.Chr, "")
-		return f, nil
-	})
+var parentRe = regexp.MustCompile(`_(.*)$`)
+
+func FilterChrParent[T any](parent string, it iter.Seq2[fastats.BedEntry[T], error]) iter.Seq2[fastats.BedEntry[T], error] {
+	return func(yield func(fastats.BedEntry[T], error) bool) {
+		for b, e := range it {
+			if e != nil {
+				yield(fastats.BedEntry[T]{}, e)
+				return
+			}
+			fields := parentRe.FindStringSubmatch(b.Chr)
+			if fields == nil {
+				continue
+			}
+			if fields[1] != parent {
+				continue
+			}
+			if ok := yield(b, nil); !ok {
+				return
+			}
+		}
+	}
+}
+
+func StripChrParent[T any](it iter.Seq2[fastats.BedEntry[T], error]) iter.Seq2[fastats.BedEntry[T], error] {
+	return func(yield func(fastats.BedEntry[T], error) bool) {
+		for f, err := range it {
+			if err != nil {
+				yield(fastats.BedEntry[T]{}, err)
+				return
+			}
+			f.Chr = parentRe.ReplaceAllString(f.Chr, "")
+			if ok := yield(f, nil); !ok {
+				return
+			}
+		}
+	}
 }
 
 var faPosRe = regexp.MustCompile(`^([^:]*):([^-]*)-(.*)$`)
@@ -104,17 +129,21 @@ func SortBed[T any](bed []fastats.BedEntry[T]) {
 	})
 }
 
-func KeepBedMatches[T any](css map[string]int, it iter.Iter[fastats.BedEntry[T]]) *iter.Iterator[fastats.BedEntry[T]] {
+func KeepBedMatches[T any](css map[string]int, it iter.Seq2[fastats.BedEntry[T], error]) iter.Seq2[fastats.BedEntry[T], error] {
 	counts := map[string]int{}
 	for chr, _ := range css {
 		counts[chr] = 0
 	}
 
-	return &iter.Iterator[fastats.BedEntry[T]]{Iteratef: func(yield func(fastats.BedEntry[T]) error) error {
-		return it.Iterate(func(b fastats.BedEntry[T]) error {
+	return func(yield func(fastats.BedEntry[T], error) bool) {
+		for b, err := range it {
+			if err != nil {
+				yield(fastats.BedEntry[T]{}, err)
+				return
+			}
 			size := b.End - b.Start
 			if b.Start % size != 0 {
-				return nil
+				continue
 			}
 
 			if count, ok := counts[b.Chr]; ok {
@@ -123,25 +152,31 @@ func KeepBedMatches[T any](css map[string]int, it iter.Iter[fastats.BedEntry[T]]
 				counts[b.Chr]++
 				// log.Printf("count: %v; css[b.Chr]: %v; oknum: %v; b: %v\n", count, css[b.Chr], oknum, b)
 				if oknum {
-					return yield(b)
+					if ok := yield(b, nil); !ok {
+						return
+					}
 				}
 			}
-			return nil
-		})
-	}}
+		}
+	}
 }
 
-func KeepFaMatches(css map[string]int, it iter.Iter[fastats.FaEntry]) *iter.Iterator[fastats.FaEntry] {
+func KeepFaMatches(css map[string]int, it iter.Seq2[fastats.FaEntry, error]) iter.Seq2[fastats.FaEntry, error] {
 	counts := map[string]int{}
 	for chr, _ := range css {
 		counts[chr] = 0
 	}
 
-	return &iter.Iterator[fastats.FaEntry]{Iteratef: func(yield func(fastats.FaEntry) error) error {
-		return it.Iterate(func(b fastats.FaEntry) error {
+	return func(yield func(fastats.FaEntry, error) bool) {
+		for b, err := range it {
+			if err != nil {
+				yield(fastats.FaEntry{}, err)
+				return
+			}
 			facs, err := GetFaChrSpan(b)
 			if err != nil {
-				return err
+				yield(fastats.FaEntry{}, err)
+				return
 			}
 			fachr := facs.Chr
 
@@ -151,12 +186,13 @@ func KeepFaMatches(css map[string]int, it iter.Iter[fastats.FaEntry]) *iter.Iter
 				counts[fachr]++
 				// log.Printf("count: %v; css[fachr]: %v; oknum: %v; b: %v\n", count, css[fachr], oknum, b)
 				if oknum {
-					return yield(b)
+					if ok := yield(b, nil); !ok {
+						return
+					}
 				}
 			}
-			return nil
-		})
-	}}
+		}
+	}
 }
 
 func CollectBedWithHeader(path string) ([]fastats.BedEntry[[]string], error) {
@@ -169,7 +205,7 @@ func CollectBedWithHeader(path string) ([]fastats.BedEntry[[]string], error) {
 
 	_, err := br.ReadString('\n')
 
-	bed, err := iter.Collect[fastats.BedEntry[[]string]](fastats.ParseBed[[]string](br, func(fields []string) ([]string, error) {
+	bed, err := CollectErr[fastats.BedEntry[[]string]](fastats.ParseBed[[]string](br, func(fields []string) ([]string, error) {
 		out := make([]string, len(fields))
 		copy(out, fields)
 		return out, nil
@@ -177,28 +213,31 @@ func CollectBedWithHeader(path string) ([]fastats.BedEntry[[]string], error) {
 	return bed, err
 }
 
-func FaChrSpanSet(it iter.Iter[fastats.FaEntry]) (map[string]int, error) {
+func FaChrSpanSet(it iter.Seq2[fastats.FaEntry, error]) (map[string]int, error) {
 	m := map[string]int{}
-	err := it.Iterate(func(f fastats.FaEntry) error {
+	for f, err := range it {
+		if err != nil {
+			return m, err
+		}
 		fields := faPosRe.FindStringSubmatch(f.Header)
 		m[fields[1]]++
-		return nil
-	})
+	}
 
-	return m, err
+	return m, nil
 }
 
-func BedSet[T any](it iter.Iter[fastats.BedEntry[T]]) map[string]int {
+func BedSet[T any](it iter.Seq2[fastats.BedEntry[T], error]) map[string]int {
 	m := map[string]int{}
-	_ = it.Iterate(func(f fastats.BedEntry[T]) error {
+	for f, err := range it {
+		if err != nil {
+			panic(err)
+		}
 		m[f.Chr]++
-		return nil
-	})
-
+	}
 	return m
 }
 
-func WriteBed(path string, bed iter.Iter[fastats.BedEntry[[]string]]) error {
+func WriteBed(path string, bed iter.Seq2[fastats.BedEntry[[]string], error]) error {
 	w, e := csvh.CreateMaybeGz(path)
 	if e != nil {
 		return e
@@ -207,10 +246,16 @@ func WriteBed(path string, bed iter.Iter[fastats.BedEntry[[]string]]) error {
 	bw := bufio.NewWriter(w)
 	defer bw.Flush()
 
-	return bed.Iterate(func(f fastats.BedEntry[[]string]) error {
+	for f, e := range bed {
+		if e != nil {
+			return e
+		}
 		_, e := fmt.Fprintf(bw, "%v\t%v\t%v\t%v\n", f.Chr, f.Start, f.End, strings.Join(f.Fields, "\t"))
-		return e
-	})
+		if e != nil {
+			return e
+		}
+	}
+	return nil
 }
 
 type CleanupFlags struct {
@@ -278,6 +323,26 @@ func StripNaNs(col int, bed []fastats.BedEntry[[]string], fa1, fa2 []fastats.FaE
 	return out, nil
 }
 
+func SliceIter[S ~[]T, T any](s S) iter.Seq[T] {
+	return func(y func(T) bool) {
+		for _, t := range s {
+			if ok := y(t); !ok {
+				return
+			}
+		}
+	}
+}
+
+func AddErr[T any](it iter.Seq[T]) iter.Seq2[T, error] {
+	return func(y func(T, error) bool) {
+		for t := range it {
+			if ok := y(t, nil); !ok {
+				return
+			}
+		}
+	}
+}
+
 func Cleanup(f CleanupFlags) error {
 	fa1, e := CollectFa(f.Fa1)
 	if e != nil {
@@ -299,30 +364,30 @@ func Cleanup(f CleanupFlags) error {
 		panic(e)
 	}
 
-	pbed := FilterChrParent[[]string](f.Parent, iter.SliceIter[fastats.BedEntry[[]string]](bed))
-	bed, e = iter.Collect[fastats.BedEntry[[]string]](StripChrParent[[]string](pbed))
+	pbed := FilterChrParent[[]string](f.Parent, AddErr(SliceIter(bed)))
+	bed, e = CollectErr(StripChrParent[[]string](pbed))
 	if e != nil {
 		panic(e)
 	}
 
-	set, e := FaChrSpanSet(iter.SliceIter[fastats.FaEntry](fa1))
+	set, e := FaChrSpanSet(AddErr(SliceIter(fa1)))
 	if e != nil {
 		panic(e)
 	}
 	SortBed(bed)
 	// log.Println("set:", set)
 
-	bedkept, e := iter.Collect[fastats.BedEntry[[]string]](KeepBedMatches[[]string](set, iter.SliceIter[fastats.BedEntry[[]string]](bed)))
+	bedkept, e := CollectErr(KeepBedMatches[[]string](set, AddErr(SliceIter(bed))))
 	if e != nil {
 		panic(e)
 	}
 
-	bedset := BedSet[[]string](iter.SliceIter[fastats.BedEntry[[]string]](bedkept))
-	fa1kept, e := iter.Collect[fastats.FaEntry](KeepFaMatches(bedset, iter.SliceIter[fastats.FaEntry](fa1)))
+	bedset := BedSet[[]string](AddErr(SliceIter((bedkept))))
+	fa1kept, e := CollectErr(KeepFaMatches(bedset, AddErr(SliceIter(fa1))))
 	if e != nil {
 		panic(e)
 	}
-	fa2kept, e := iter.Collect[fastats.FaEntry](KeepFaMatches(bedset, iter.SliceIter[fastats.FaEntry](fa2)))
+	fa2kept, e := CollectErr(KeepFaMatches(bedset, AddErr(SliceIter(fa2))))
 	if e != nil {
 		panic(e)
 	}
@@ -337,13 +402,13 @@ func Cleanup(f CleanupFlags) error {
 		panic(e)
 	}
 
-	if e := WriteBed(f.Outpre + ".bed.gz", iter.SliceIter[fastats.BedEntry[[]string]](stripped.Bed)); e != nil {
+	if e := WriteBed(f.Outpre + ".bed.gz", AddErr(SliceIter(stripped.Bed))); e != nil {
 		panic(e)
 	}
-	if e := WriteFasta(f.Outpre + "_1.fa.gz", iter.SliceIter[fastats.FaEntry](stripped.Fa1)); e != nil {
+	if e := WriteFasta(f.Outpre + "_1.fa.gz", AddErr(SliceIter(stripped.Fa1))); e != nil {
 		panic(e)
 	}
-	if e := WriteFasta(f.Outpre + "_2.fa.gz", iter.SliceIter[fastats.FaEntry](stripped.Fa2)); e != nil {
+	if e := WriteFasta(f.Outpre + "_2.fa.gz", AddErr(SliceIter(stripped.Fa2))); e != nil {
 		panic(e)
 	}
 

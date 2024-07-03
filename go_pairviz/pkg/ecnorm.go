@@ -1,7 +1,7 @@
 package pairviz
 
 import (
-	"github.com/jgbaldwinbrown/iter"
+	"iter"
 	"math"
 	"bufio"
 	"flag"
@@ -61,20 +61,16 @@ func OpenMaybeGz(path string) (io.ReadCloser, error) {
 	return os.Open(path)
 }
 
-func ParsePairvizOut(r io.Reader) *iter.Iterator[JsonOutStat] {
-	return &iter.Iterator[JsonOutStat]{Iteratef: func(yield func(JsonOutStat) error) error {
+func ParsePairvizOut(r io.Reader) iter.Seq2[JsonOutStat, error] {
+	return func(yield func(JsonOutStat, error) bool) {
 		dec := json.NewDecoder(r)
 		var j JsonOutStat
 		for err := dec.Decode(&j); err != io.EOF; err = dec.Decode(&j) {
-			if err != nil {
-				return err
-			}
-			if err = yield(j); err != nil {
-				return err
+			if ok := yield(j, err); !ok {
+				return
 			}
 		}
-		return nil
-	}}
+	}
 }
 
 func IsInfOrNaN(j JsonFloat) bool {
@@ -165,23 +161,22 @@ func DivCounts(sums JsonOutStat, counts JsonOutStat) JsonOutStat {
 	return out
 }
 
-func GetControlStatMeans(controlChr string, it iter.Iter[JsonOutStat]) (control, exp JsonOutStat, err error) {
+func GetControlStatMeans(controlChr string, it iter.Seq2[JsonOutStat, error]) (control, exp JsonOutStat, err error) {
 	var sums JsonOutStat
 	var counts JsonOutStat
 
 	var expsums JsonOutStat
 	var expcounts JsonOutStat
 
-	err = it.Iterate(func(j JsonOutStat) error {
+	for j, err := range it {
+		if err != nil {
+			return JsonOutStat{}, JsonOutStat{}, err
+		}
 		if j.Chr == controlChr {
 			AccumStats(&sums, &counts, j)
 		} else {
 			AccumStats(&expsums, &expcounts, j)
 		}
-		return nil
-	})
-	if err != nil {
-		return JsonOutStat{}, JsonOutStat{}, err
 	}
 
 	return DivCounts(sums, counts), DivCounts(expsums, expcounts), nil
@@ -211,13 +206,15 @@ func SubtractControlStat(x JsonOutStat, control JsonOutStat) JsonOutStat {
 	return out
 }
 
-func SubtractControlStatAll(it iter.Iter[JsonOutStat], control JsonOutStat) *iter.Iterator[JsonOutStat] {
-	return &iter.Iterator[JsonOutStat]{Iteratef: func(yield func(JsonOutStat) error) error {
-		return it.Iterate(func(x JsonOutStat) error {
+func SubtractControlStatAll(it iter.Seq2[JsonOutStat, error], control JsonOutStat) iter.Seq2[JsonOutStat, error] {
+	return func(yield func(JsonOutStat, error) bool) {
+		for x, err := range it {
 			j := SubtractControlStat(x, control)
-			return yield(j)
-		})
-	}}
+			if ok := yield(j, err); !ok {
+				return
+			}
+		}
+	}
 }
 
 func DivideControlAltFpkm(x JsonOutStat, control JsonOutStat) JsonOutStat {
@@ -244,13 +241,15 @@ func DivideControlAltFpkm(x JsonOutStat, control JsonOutStat) JsonOutStat {
 	return out
 }
 
-func DivideControlAltFpkmAll(it iter.Iter[JsonOutStat], control JsonOutStat) *iter.Iterator[JsonOutStat] {
-	return &iter.Iterator[JsonOutStat]{Iteratef: func(yield func(JsonOutStat) error) error {
-		return it.Iterate(func(x JsonOutStat) error {
+func DivideControlAltFpkmAll(it iter.Seq2[JsonOutStat, error], control JsonOutStat) iter.Seq2[JsonOutStat, error] {
+	return func(yield func(JsonOutStat, error) bool) {
+		for x, err := range it {
 			j := DivideControlAltFpkm(x, control)
-			return yield(j)
-		})
-	}}
+			if ok := yield(j, err); !ok {
+				return
+			}
+		}
+	}
 }
 
 func WriteMeansPath(path string, control, exp JsonOutStat) error {
@@ -305,7 +304,7 @@ func FullSubtractControl() {
 	defer func() { Must(r.Close()) }()
 
 	it = ParsePairvizOut(r)
-	var transit iter.Iter[JsonOutStat]
+	var transit iter.Seq2[JsonOutStat, error]
 	if *divp {
 		transit = DivideControlAltFpkmAll(it, cmean)
 	} else {
@@ -315,8 +314,8 @@ func FullSubtractControl() {
 	w := bufio.NewWriter(os.Stdout)
 	defer w.Flush()
 	enc := json.NewEncoder(w)
-	err := transit.Iterate(func(j JsonOutStat) error {
-		return enc.Encode(j)
-	})
-	Must(err)
+	for j, err := range transit {
+		Must(err)
+		Must(enc.Encode(j))
+	}
 }

@@ -3,7 +3,6 @@ package prepfa
 import (
 	"fmt"
 	"github.com/jgbaldwinbrown/fastats/pkg"
-	"github.com/jgbaldwinbrown/iter"
 	"testing"
 )
 
@@ -53,20 +52,20 @@ var inbedlong = []fastats.BedEntry[[]string] {
 }
 
 func TestCleanupShortBed(t *testing.T) {
-	set, e := FaChrSpanSet(iter.SliceIter[fastats.FaEntry](infa))
+	set, e := FaChrSpanSet(AddErr(SliceIter(infa)))
 	if e != nil {
 		panic(e)
 	}
 	fmt.Println("set:", set)
 
-	bedkept, e := iter.Collect[fastats.BedEntry[[]string]](KeepBedMatches[[]string](set, iter.SliceIter[fastats.BedEntry[[]string]](inbedshort)))
+	bedkept, e := CollectErr(KeepBedMatches[[]string](set, AddErr(SliceIter(inbedshort))))
 	if e != nil {
 		panic(e)
 	}
 
-	bedset := BedSet[[]string](iter.SliceIter[fastats.BedEntry[[]string]](bedkept))
+	bedset := BedSet[[]string](AddErr(SliceIter(bedkept)))
 	fmt.Println("bedset:", bedset)
-	fa1kept, e := iter.Collect[fastats.FaEntry](KeepFaMatches(bedset, iter.SliceIter[fastats.FaEntry](infa)))
+	fa1kept, e := CollectErr(KeepFaMatches(bedset, AddErr(SliceIter(infa))))
 	if e != nil {
 		panic(e)
 	}
@@ -79,20 +78,20 @@ func TestCleanupShortBed(t *testing.T) {
 }
 
 func TestCleanupLongBed(t *testing.T) {
-	set, e := FaChrSpanSet(iter.SliceIter[fastats.FaEntry](infa))
+	set, e := FaChrSpanSet(AddErr(SliceIter(infa)))
 	if e != nil {
 		panic(e)
 	}
 	fmt.Println("set:", set)
 
-	bedkept, e := iter.Collect[fastats.BedEntry[[]string]](KeepBedMatches[[]string](set, iter.SliceIter[fastats.BedEntry[[]string]](inbedlong)))
+	bedkept, e := CollectErr(KeepBedMatches[[]string](set, AddErr(SliceIter(inbedlong))))
 	if e != nil {
 		panic(e)
 	}
 
-	bedset := BedSet[[]string](iter.SliceIter[fastats.BedEntry[[]string]](bedkept))
+	bedset := BedSet[[]string](AddErr(SliceIter(bedkept)))
 	fmt.Println("bedset:", bedset)
-	fa1kept, e := iter.Collect[fastats.FaEntry](KeepFaMatches(bedset, iter.SliceIter[fastats.FaEntry](infa)))
+	fa1kept, e := CollectErr(KeepFaMatches(bedset, AddErr(SliceIter(infa))))
 	if e != nil {
 		panic(e)
 	}

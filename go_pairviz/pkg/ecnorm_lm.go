@@ -2,7 +2,7 @@ package pairviz
 
 import (
 	"github.com/sajari/regression"
-	"github.com/jgbaldwinbrown/iter"
+	"iter"
 	"bufio"
 	"flag"
 	"encoding/json"
@@ -66,15 +66,17 @@ func MakeControlLine(y float64, name string, t BatchInfoTable) []float64 {
 	return x
 }
 
-func GetBatchControlStatTable(controlChr string, t BatchInfoTable, it iter.Iter[JsonOutStat]) ([][]float64, error) {
+func GetBatchControlStatTable(controlChr string, t BatchInfoTable, it iter.Seq2[JsonOutStat, error]) ([][]float64, error) {
 	var out [][]float64
-	err := it.Iterate(func(j JsonOutStat) error {
+	for j, err := range it {
+		if err != nil {
+			return out, err
+		}
 		if j.Chr == controlChr {
 			out = append(out, MakeControlLine(float64(j.AltFpkm), j.Name, t))
 		}
-		return nil
-	})
-	return out, err
+	}
+	return out, nil
 }
 
 func TrainTable(table [][]float64, depcol int, depname string, indepcols []int, indepnames []string) *regression.Regression {
@@ -132,13 +134,15 @@ func ResidualFromAltFpkm(x JsonOutStat, t BatchInfoTable, model *regression.Regr
 	return x
 }
 
-func ResidualFromAltFpkmAll(it iter.Iter[JsonOutStat], t BatchInfoTable, model *regression.Regression) *iter.Iterator[JsonOutStat] {
-	return &iter.Iterator[JsonOutStat]{Iteratef: func(yield func(JsonOutStat) error) error {
-		return it.Iterate(func(x JsonOutStat) error {
+func ResidualFromAltFpkmAll(it iter.Seq2[JsonOutStat, error], t BatchInfoTable, model *regression.Regression) iter.Seq2[JsonOutStat, error] {
+	return func(yield func(JsonOutStat, error) bool) {
+		for x, err := range it {
 			j := ResidualFromAltFpkm(x, t, model)
-			return yield(j)
-		})
-	}}
+			if ok := yield(j, err); !ok {
+				return
+			}
+		}
+	}
 }
 
 // WriteModel(*outmeanp, batchInfo, controlTable, model)
@@ -230,8 +234,8 @@ func FullEcnormLm() {
 	w := bufio.NewWriter(os.Stdout)
 	defer w.Flush()
 	enc := json.NewEncoder(w)
-	err := transit.Iterate(func(j JsonOutStat) error {
-		return enc.Encode(j)
-	})
-	Must(err)
+	for j, err := range transit {
+		Must(err)
+		Must(enc.Encode(j))
+	}
 }

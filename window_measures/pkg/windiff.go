@@ -12,8 +12,8 @@ import (
 	"log"
 	"strings"
 	"github.com/jgbaldwinbrown/parallel_ordered"
-	"github.com/jgbaldwinbrown/iter"
 	"golang.org/x/sync/errgroup"
+	"iter"
 )
 
 func ReadLines(r io.Reader) ([]string, error) {
@@ -186,14 +186,7 @@ func Run() {
 	}()
 
 	i := 0
-	puller := iter.Pull[Winpair](it, 256)
-	defer func() {
-		e := puller.Close()
-		if e != nil {
-			log.Fatal(e)
-		}
-	}()
-	for wp, e := puller.Next(); e != io.EOF; wp, e = puller.Next() {
+	for wp, e := range it {
 		if e != nil {
 			log.Fatal(e)
 		}

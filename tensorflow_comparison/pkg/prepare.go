@@ -8,7 +8,7 @@ import (
 	"io"
 	"flag"
 	"github.com/jgbaldwinbrown/fastats/pkg"
-	"github.com/jgbaldwinbrown/iter"
+	"iter"
 	"strings"
 	"regexp"
 	"github.com/jgbaldwinbrown/csvh"
@@ -46,15 +46,17 @@ func ReadGenos(line []string) ([]string, error) {
 	return out, nil
 }
 
-func ReadWinBed(r io.Reader) iter.Iter[fastats.ChrSpan] {
+func ReadWinBed(r io.Reader) iter.Seq2[fastats.ChrSpan, error] {
 	bed := fastats.ParseBed[struct{}](r, func([]string) (struct{}, error) {
 		return struct{}{}, nil
 	})
-	return &iter.Iterator[fastats.ChrSpan]{Iteratef: func(yield func(fastats.ChrSpan) error) error {
-		return bed.Iterate(func(b fastats.BedEntry[struct{}]) error {
-			return yield(b.ChrSpan)
-		})
-	}}
+	return func(yield func(fastats.ChrSpan, error) bool) {
+		for b, err := range bed {
+			if ok := yield(b.ChrSpan, err); !ok {
+				return
+			}
+		}
+	}
 }
 
 func CollectFa(path string) ([]fastats.FaEntry, error) {
@@ -64,13 +66,14 @@ func CollectFa(path string) ([]fastats.FaEntry, error) {
 	}
 	defer r.Close()
 
-	return iter.Collect[fastats.FaEntry](fastats.ParseFasta(r))
+	return CollectErr(fastats.ParseFasta(r))
 }
 
 var namesRe = regexp.MustCompile(`^#CHROM.*FORMAT\t(.*)`)
 
-func ReadVCF(r io.Reader) (names []string, it *iter.Iterator[fastats.VcfEntry[[]string]], err error) {
-	s := iter.NewScanner(r)
+func ReadVCF(r io.Reader) (names []string, it iter.Seq2[fastats.VcfEntry[[]string], error], err error) {
+	s := bufio.NewScanner(r)
+	s.Buffer([]byte{}, 1e12)
 	for s.Scan() {
 		if s.Err() != nil {
 			return nil, nil, s.Err()
@@ -82,7 +85,7 @@ func ReadVCF(r io.Reader) (names []string, it *iter.Iterator[fastats.VcfEntry[[]
 		}
 	}
 
-	return names, &iter.Iterator[fastats.VcfEntry[[]string]]{Iteratef: func(yield func(fastats.VcfEntry[[]string]) error) error {
+	return names, func(yield func(fastats.VcfEntry[[]string], error) bool) {
 		var line []string
 		i := 0
 		h := func(i int, e error) error {
@@ -93,39 +96,46 @@ func ReadVCF(r io.Reader) (names []string, it *iter.Iterator[fastats.VcfEntry[[]
 			line = AppendSplit(line[:0], s.Text(), "\t")
 			e := fastats.ParseVcfMainFields(&v, line)
 			if e != nil {
-				return h(i, e)
+				yield(v, h(i, e))
+				return
 			}
 
 			v.InfoAndSamples, e = ReadGenos(line)
 			if e != nil {
-				return h(i, e)
+				yield(v, h(i, e))
+				return
 			}
 
-			e = yield(v)
-			if e != nil {
-				return h(i, e)
+			if ok := yield(v, nil); !ok {
+				return
 			}
 			i++
 		}
-		return nil
-	}}, nil
+	}, nil
 }
 
-func SubsetVCFCols(it iter.Iter[fastats.VcfEntry[[]string]], cols ...int) *iter.Iterator[fastats.VcfEntry[[]string]] {
-	return &iter.Iterator[fastats.VcfEntry[[]string]]{Iteratef: func(yield func(fastats.VcfEntry[[]string]) error) error {
-		return it.Iterate(func(v fastats.VcfEntry[[]string]) error {
+func SubsetVCFCols(it iter.Seq2[fastats.VcfEntry[[]string], error], cols ...int) iter.Seq2[fastats.VcfEntry[[]string], error] {
+	return func(yield func(fastats.VcfEntry[[]string], error) bool) {
+		for v, err := range it {
+			if err != nil {
+				yield(v, err)
+				return
+			}
 			v2 := v
 			v2.InfoAndSamples = make([]string, 0, len(cols))
 
 			for _, col := range cols {
 				if col >= len(v.InfoAndSamples) {
-					return fmt.Errorf("col %v >= len(v.InfoAndSamples) %v", col, len(v.InfoAndSamples))
+					yield(v, fmt.Errorf("col %v >= len(v.InfoAndSamples) %v", col, len(v.InfoAndSamples)))
+					return
 				}
 				v2.InfoAndSamples = append(v2.InfoAndSamples, v.InfoAndSamples[col])
 			}
-			return yield(v2)
-		})
-	}}
+			if ok := yield(v2, nil); !ok {
+				return
+			}
+		}
+	}
 }
 
 func CollectVCF(path string, cols ...int) (names []string, vcf []fastats.VcfEntry[[]string], err error) {
@@ -140,7 +150,7 @@ func CollectVCF(path string, cols ...int) (names []string, vcf []fastats.VcfEntr
 		return nil, nil, err
 	}
 	it2 := SubsetVCFCols(it1, cols...)
-	vcf, err = iter.Collect[fastats.VcfEntry[[]string]](it2)
+	vcf, err = CollectErr(it2)
 	return names, vcf, err
 }
 
@@ -301,7 +311,7 @@ func BuildFas(fa []fastats.FaEntry, vcf []fastats.VcfEntry[[]string]) (fa1, fa2 
 	return fa1, fa2, coords1, coords2
 }
 
-func WriteFasta(path string, it iter.Iter[fastats.FaEntry]) error {
+func WriteFasta(path string, it iter.Seq2[fastats.FaEntry, error]) error {
 	w, e := csvh.CreateMaybeGz(path)
 	if e != nil {
 		return e
@@ -310,13 +320,19 @@ func WriteFasta(path string, it iter.Iter[fastats.FaEntry]) error {
 	bw := bufio.NewWriter(w)
 	defer bw.Flush()
 
-	return it.Iterate(func(f fastats.FaEntry) error {
-		_, e := fmt.Fprintf(bw, ">%v\n%v\n", f.Header, f.Seq)
-		return e
-	})
+	for f, e := range it {
+		if e != nil {
+			return e
+		}
+		_, e = fmt.Fprintf(bw, ">%v\n%v\n", f.Header, f.Seq)
+		if e != nil {
+			return e
+		}
+	}
+	return nil
 }
 
-func WriteCoords(path string, it iter.Iter[CoordsPair]) error {
+func WriteCoords(path string, it iter.Seq2[CoordsPair, error]) error {
 	w, e := csvh.CreateMaybeGz(path)
 	if e != nil {
 		return e
@@ -325,13 +341,19 @@ func WriteCoords(path string, it iter.Iter[CoordsPair]) error {
 	bw := bufio.NewWriter(w)
 	defer bw.Flush()
 
-	return it.Iterate(func(c CoordsPair) error {
-		_, e := fmt.Fprintf(bw, "%v\t%v\t%v\t%v\t%v\t%v\n",
+	for c, e := range it {
+		if e != nil {
+			return e
+		}
+		_, e = fmt.Fprintf(bw, "%v\t%v\t%v\t%v\t%v\t%v\n",
 			c.Original.Chr, c.Original.Start, c.Original.End,
 			c.New.Chr, c.New.Start, c.New.End,
 		)
-		return e
-	})
+		if e != nil {
+			return e
+		}
+	}
+	return nil
 }
 
 func coordConv(pos int, coords []CoordsPair) int {
@@ -339,8 +361,8 @@ func coordConv(pos int, coords []CoordsPair) int {
 	return pos + int(coords[i].New.Start - coords[i].Original.Start)
 }
 
-func MakeWins(fa []fastats.FaEntry, coords []CoordsPair, size int, step int, width int) *iter.Iterator[fastats.ChrSpan] {
-	return &iter.Iterator[fastats.ChrSpan]{Iteratef: func(yield func(fastats.ChrSpan) error) error {
+func MakeWins(fa []fastats.FaEntry, coords []CoordsPair, size int, step int, width int) iter.Seq2[fastats.ChrSpan, error] {
+	return func(yield func(fastats.ChrSpan, error) bool) {
 		chrcoords := make(map[string][]CoordsPair, len(fa))
 		for _, pair := range coords {
 			chrcoords[pair.Original.Chr] = append(chrcoords[pair.Original.Chr], pair)
@@ -352,35 +374,40 @@ func MakeWins(fa []fastats.FaEntry, coords []CoordsPair, size int, step int, wid
 			for mid := size / 2; mid + half < len(entry.Seq); mid += step {
 				midconv := coordConv(mid, chrcoords[entry.Header])
 				span := chrSpan(entry.Header, int64(midconv - halfwidth), int64(midconv + halfwidth))
-				e := yield(span)
-				if e != nil {
-					return e
+				if ok := yield(span, nil); !ok {
+					return
 				}
 			}
 		}
-		return nil
-	}}
+	}
 }
 
-func FaFixedWins(fa []fastats.FaEntry, wins iter.Iter[fastats.ChrSpan]) *iter.Iterator[fastats.FaEntry] {
-	return &iter.Iterator[fastats.FaEntry]{Iteratef: func(yield func(fastats.FaEntry) error) error {
+func FaFixedWins(fa []fastats.FaEntry, wins iter.Seq2[fastats.ChrSpan, error]) iter.Seq2[fastats.FaEntry, error] {
+	return func(yield func(fastats.FaEntry, error) bool) {
 		chrs := make(map[string]fastats.FaEntry, len(fa))
 		for _, entry := range fa {
 			chrs[entry.Header] = entry
 		}
 
-		return wins.Iterate(func(s fastats.ChrSpan) error {
+		for s, err := range wins {
+			if err != nil {
+				yield(fastats.FaEntry{}, err)
+				return
+			}
 			if s.Span.Start < 0 || s.Span.End > int64(len(chrs[s.Chr].Seq)) {
 				log.Printf("Trying to extract win out of bounds; chr: %v; chrlen: %v; span: %v\n", s.Chr, len(chrs[s.Chr].Seq), s.Span)
-				return nil
+				continue
 			}
 			out, err := fastats.ExtractOne(chrs[s.Chr], s.Span)
 			if err != nil {
-				return err
+				yield(fastats.FaEntry{}, err)
+				return
 			}
-			return yield(out)
-		})
-	}}
+			if ok := yield(out, nil); !ok {
+				return
+			}
+		}
+	}
 }
 
 type PrepFaFlags struct {
@@ -435,16 +462,16 @@ func PrepFa(f PrepFaFlags) error {
 
 	fa1, fa2, coords1, coords2 := BuildFas(fa, vcf)
 
-	if err := WriteFasta((f.Outpre) + "_1.fa.gz", iter.SliceIter[fastats.FaEntry](fa1)); err != nil {
+	if err := WriteFasta((f.Outpre) + "_1.fa.gz", AddErr(SliceIter(fa1))); err != nil {
 		panic(err)
 	}
-	if err := WriteFasta((f.Outpre) + "_2.fa.gz", iter.SliceIter[fastats.FaEntry](fa2)); err != nil {
+	if err := WriteFasta((f.Outpre) + "_2.fa.gz", AddErr(SliceIter(fa2))); err != nil {
 		panic(err)
 	}
-	if err := WriteCoords((f.Outpre) + "_1_coords.bed.gz", iter.SliceIter[CoordsPair](coords1)); err != nil {
+	if err := WriteCoords((f.Outpre) + "_1_coords.bed.gz", AddErr(SliceIter(coords1))); err != nil {
 		panic(err)
 	}
-	if err := WriteCoords((f.Outpre) + "_2_coords.bed.gz", iter.SliceIter[CoordsPair](coords2)); err != nil {
+	if err := WriteCoords((f.Outpre) + "_2_coords.bed.gz", AddErr(SliceIter(coords2))); err != nil {
 		panic(err)
 	}
 
