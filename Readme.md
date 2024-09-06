@@ -4,7 +4,7 @@ Pairviz is software for converting .pairs files that describe Hi-C data into lin
 
 ## Requirements
 
-Pairviz is written in Python 3 and has the following requirements:
+Pairviz is written in Go and Python 3 and has the following requirements:
 
 ```
 matplotlib
