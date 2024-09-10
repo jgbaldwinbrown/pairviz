@@ -1,3 +1,6 @@
+// A wrapper around bedtools merge for combining bedfile entries indicating
+// high, medium, or low pairing into a high, medium, and low file, with
+// some options for chopping into smaller files, etc.
 package main
 
 import (
