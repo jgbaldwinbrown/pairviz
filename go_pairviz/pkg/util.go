@@ -27,6 +27,7 @@ type Flags struct {
 	JsonOut bool
 }
 
+// Data associated with a single read from a read pair
 type Read struct {
 	Chrom string
 	Parent string
@@ -35,6 +36,7 @@ type Read struct {
 	Dir int
 }
 
+// The direction of a read pair
 type Facing int
 
 const (
@@ -44,11 +46,13 @@ const (
 	Match
 )
 
+// A read pair
 type Pair struct {
 	Read1 Read
 	Read2 Read
 }
 
+// The absolute distance between the two read pair ends
 func (p Pair) AbsPosDist() int64 {
 	return Abs(p.Read2.Pos - p.Read1.Pos)
 }
@@ -80,6 +84,7 @@ func (p Pair) Face() Facing {
 	return Unknown
 }
 
+// Calculate FPKM for a region
 func Fpkm(count int64, total_sample_reads int64, window_length int64) float64 {
 	pmsf := float64(total_sample_reads) / 1e6
 	fpm := float64(count) / pmsf
@@ -141,6 +146,7 @@ func GetFlags() (f Flags) {
 	return
 }
 
+// Parse a .pairs file read
 func ParseRead(fields []string) (read Read) {
 	read.Ok = fields[0] != "!"
 	if !read.Ok {
@@ -167,6 +173,7 @@ func ParseRead(fields []string) (read Read) {
 	return
 }
 
+// Parse an entire .pairs file pair
 func ParsePair(line []string) (pair Pair, ok bool) {
 	if !IsAPair(line) {
 		ok = false
@@ -184,6 +191,7 @@ func Abs(x int64) int64 {
 	return x
 }
 
+// Check if a .pairs file line represents a pair rather than, say, a comment
 func IsAPair(line []string) bool {
 	if len(line) < 5 {
 		return false
@@ -194,15 +202,18 @@ func IsAPair(line []string) bool {
 	return true
 }
 
+// Check if the read pair is correctly aligned
 func CheckGood(line []string) bool {
 	if len(line) < 2 { return false }
 	return line[1] != "!"
 }
 
+// Check if a read pair has matching chromosomes and inward facing
 func (p Pair) IsSelfIn() bool {
 	return p.Read1.Chrom == p.Read2.Chrom && p.Read1.Parent == p.Read2.Parent && p.Face() == In
 }
 
+// Check if the distance between read pair ends is outsize the specified maxes and mins
 func RangeBad(maxdist int64, mindist int64, pairmindist int64, selfinmindist int64, pair Pair) bool {
 	dist := Abs(pair.Read1.Pos - pair.Read2.Pos)
 	if pair.IsSelfIn() && dist < selfinmindist {
@@ -220,6 +231,7 @@ func RangeBad(maxdist int64, mindist int64, pairmindist int64, selfinmindist int
 	}
 }
 
+// Print the header for a standard pairviz output tab-separated table
 func FprintHeader(w io.Writer, fpkm bool, readlen int64, namecol bool) {
 	fmt.Fprintf(os.Stderr, "Header namecol: %v\n", namecol)
 	fmt.Fprint(w, "chrom\tstart\tend\thit_type\talt_hit_type\thits\talt_hits\tpair_prop\talt_prop\tpair_totprop\tpair_totgoodprop\tpair_totcloseprop\twinsize\twinstep")

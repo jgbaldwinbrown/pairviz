@@ -6,6 +6,7 @@ import (
 	"io"
 )
 
+// Statistics for all chromosomes
 type ChromStats struct {
 	SelfHits map[string]int64
 	PairHits map[string]int64
@@ -51,6 +52,7 @@ func ChromosomeStats(f Flags, r io.Reader) (stats ChromStats) {
 	return
 }
 
+// Write all chromosome stats
 func FprintChromStats(w io.Writer, stats ChromStats) {
 	for k, v := range stats.SelfHits {
 		fmt.Fprintf(w, "Self\t%s\t%d\n", k, v)

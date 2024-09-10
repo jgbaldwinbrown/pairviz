@@ -8,6 +8,7 @@ import (
 	"os"
 )
 
+// Statistics for all specified regions
 type RegionStats struct {
 	TotalGoodHits int64
 	TotalBadHits int64
@@ -17,6 +18,7 @@ type RegionStats struct {
 	Name string
 }
 
+// Statistics for one region
 type Region struct {
 	Chrom string
 	Start int64
@@ -27,12 +29,14 @@ type Region struct {
 	PairFpkm float64
 }
 
+// Calculate fpkm for one region and set in place
 func FpkmRegion(region *Region, total_chrom_hits int64) {
 	winsize := region.End - region.Start
 	region.SelfFpkm = Fpkm(region.SelfHits, total_chrom_hits, winsize)
 	region.PairFpkm = Fpkm(region.PairHits, total_chrom_hits, winsize)
 }
 
+// Check if read pair overlaps a region
 func Overlap(p Pair, r Region) bool {
 	if p.Read1.Chrom != p.Read2.Chrom { return false }
 	if p.Read1.Chrom != r.Chrom { return false }
@@ -40,6 +44,7 @@ func Overlap(p Pair, r Region) bool {
 	return true
 }
 
+// Increment the self or pair hits for a region
 func IncrementRegion(p Pair, r *Region) {
 	if p.Read1.Parent == p.Read2.Parent {
 		r.SelfHits++
@@ -48,6 +53,7 @@ func IncrementRegion(p Pair, r *Region) {
 	}
 }
 
+// Parse a bed file line to specify a region; must have first 3 columns
 func ParseRegion(line []string) (region Region, err error) {
 	region_err := fmt.Errorf("Region parse error")
 	if len(line) < 3 {
@@ -61,6 +67,7 @@ func ParseRegion(line []string) (region Region, err error) {
 	return
 }
 
+// Parse all regions in .bed file path
 func GetRegions(path string) (regions []Region, err error) {
 	r, err := os.Open(path)
 	if err != nil { return }
@@ -107,6 +114,7 @@ func GetRegionStats(flags Flags, r io.Reader) (stats RegionStats, err error) {
 	return
 }
 
+// Write the stats for all regions as tab-separated text
 func FprintRegionStats(w io.Writer, stats RegionStats) {
 	FprintHeader(w, true, -1, false)
 	format_string := "%s\t%d\t%d\t%s\t%s\t%d\t%d\t%.8g\t%.8g\t%.8g\t%.8g\t%.8g\t%d\t%d"

@@ -7,6 +7,7 @@ import (
 
 var ErrImpossibleFacing = errors.New("Impossible facing")
 
+// Check if the two reads in a pair overlap with each other
 func PairOverlaps(p Pair, readlen int64) bool {
 	ovl := PairOverlapsCore(p, readlen)
 	// log.Printf("PairOverlaps: p: %v; readlen: %v; ovl: %v\n", p, readlen, ovl);

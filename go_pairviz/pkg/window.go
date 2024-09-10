@@ -10,6 +10,7 @@ import (
 	"github.com/jgbaldwinbrown/fasttsv"
 )
 
+// All statistics associated with one window
 type AllWinStats struct {
 	Hits Hits
 	GenomeHits GenomeHits
@@ -34,6 +35,7 @@ type HitSet struct {
 	NonOvlFpkm float64
 }
 
+// Types are self, pair, overlapped, and non-overlapped
 type HitType int
 
 const (
@@ -46,6 +48,7 @@ const (
 // The raw slice of all hits in all windows along a chromosome
 type WinHitList []HitSet
 
+// Increment the correct hit type for the specified index of the WinHitList
 func (h WinHitList) IncWin(index int64, hit_type HitType) WinHitList {
 	if index < 0 { return h }
 	for len(h) <= int(index) {
@@ -218,6 +221,7 @@ func WinStats(flags Flags, r io.Reader) (stats AllWinStats) {
 	return
 }
 
+// A special variant of float64 that can marshal and unmarshal NaN and Inf values
 type JsonFloat float64
 
 func (j JsonFloat) MarshalJSON() ([]byte, error) {
@@ -258,6 +262,7 @@ func (j *JsonFloat) UnmarshalJSON(p []byte) error {
 	return nil
 }
 
+// An alternate version of the output statistics struct that can convert to JSON without crashing on NaN and Inf values
 type JsonOutStat struct {
 	Genome string
 	Chr string
@@ -289,6 +294,7 @@ type JsonOutStat struct {
 	Name string
 }
 
+// Generate the statistics for one window for JSON output
 func MakeJsonOutStat(genome, chr, name string, stats AllWinStats, winsize, winstep, index int64, win HitSet) JsonOutStat {
 	var j JsonOutStat
 
@@ -329,12 +335,14 @@ func MakeJsonOutStat(genome, chr, name string, stats AllWinStats, winsize, winst
 	return j
 }
 
+// Panic on error
 func Must(err error) {
 	if err != nil {
 		panic(err)
 	}
 }
 
+// Write all stats for all windows as JSON
 func FprintWinStatsJson(w io.Writer, stats AllWinStats, readlen int64) {
 	enc := json.NewEncoder(w)
 
@@ -349,6 +357,7 @@ func FprintWinStatsJson(w io.Writer, stats AllWinStats, readlen int64) {
 	}
 }
 
+// Write all stats for all windows (wrapper of other Fprint functions)
 func FprintWinStats(w io.Writer, stats AllWinStats, separategenomes bool, readlen int64, jsonOut bool) {
 	if jsonOut {
 		FprintWinStatsJson(w, stats, readlen)
@@ -359,6 +368,7 @@ func FprintWinStats(w io.Writer, stats AllWinStats, separategenomes bool, readle
 	}
 }
 
+// Write all stats as tab-separated text
 func FprintWinStatsPlain(w io.Writer, stats AllWinStats, readlen int64) {
 	fmt.Fprintf(os.Stderr, "WinStatsPlain name: %v\n", stats.Name)
 	FprintHeader(w, stats.Fpkm, readlen, stats.Name != "")
@@ -424,6 +434,7 @@ func FprintWinStatsPlain(w io.Writer, stats AllWinStats, readlen int64) {
 	}
 }
 
+// Write all stats as tab-separated text, and write stats separately for each genome
 func FprintWinStatsSeparateGenomes(w io.Writer, stats AllWinStats, readlen int64) {
 	fmt.Fprintf(os.Stderr, "WinStatsSeparateGenomes name: %v\n", stats.Name)
 	FprintHeader(w, stats.Fpkm, readlen, stats.Name != "")
