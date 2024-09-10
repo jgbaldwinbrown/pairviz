@@ -7,6 +7,7 @@ import (
 	"regexp"
 )
 
+// Generate config file for downsampling
 func MakeCfg() {
 	paths := GetPaths(os.Stdin)
 	cfg := DownsampleArgs{}

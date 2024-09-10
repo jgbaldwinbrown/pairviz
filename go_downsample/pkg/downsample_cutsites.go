@@ -98,6 +98,7 @@ func SubsetBedGzpaths(args ...SubsetArgs) error {
 	return nil
 }
 
+// Downsample the number of cut sites in a bunch of bed files so all files have about the same number as the bed file with the fewest cut sites
 func RunDownsampleCutSites() {
 	args := GetArgs()
 	var inpaths []string

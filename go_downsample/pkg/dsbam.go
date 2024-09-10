@@ -10,6 +10,7 @@ import (
 	"strconv"
 )
 
+// Count the number of uniquely-mapping reads in a bam file
 func CountUniqueBam(path string) (count int64, err error) {
 	var buf strings.Builder
 	cmd := exec.Command("samtools", "view", "-c", "-F0x04", path)
@@ -29,6 +30,7 @@ func CountUniqueBam(path string) (count int64, err error) {
 	return count, nil
 }
 
+// Count the uniquely-mapping reads in a set of bam files
 func CountUniqueBams(paths ...string) (counts []int, err error) {
 	for _, path := range paths {
 		var count int64
@@ -41,6 +43,7 @@ func CountUniqueBams(paths ...string) (counts []int, err error) {
 	return counts, nil
 }
 
+// Subset a bam file using the provided inpath, outpuath, seed, and proportion, only keeping unique reads
 func SubsetBamUniques(arg SubsetArgs) error {
 	w, err := os.Create(arg.Outpath)
 	if err != nil {
@@ -61,6 +64,7 @@ func SubsetBamUniques(arg SubsetArgs) error {
 	return nil
 }
 
+// Subset multiple bam files, only keeping unique reads
 func SubsetBamsUniques(args ...SubsetArgs) error {
 	for _, arg := range args {
 		err := SubsetBamUniques(arg)

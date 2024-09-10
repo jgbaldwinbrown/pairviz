@@ -10,6 +10,7 @@ import (
 	"math/rand"
 )
 
+// Subset a pairviz file, only keeping uniquely-mapped reads; pass along comments
 func SubsetPairvizUnique(r io.Reader, w io.Writer, seed int64, prop float64) error {
 	rd := rand.New(rand.NewSource(seed))
 	s := bufio.NewScanner(r)
@@ -39,6 +40,7 @@ type SubsetArgs struct {
 	Prop float64
 }
 
+// Subset a pairviz file in a gzipped path
 func SubsetPairvizUniqueGzpath(arg SubsetArgs) error {
 	r, err := os.Open(arg.Inpath)
 	if err != nil {
@@ -64,6 +66,7 @@ func SubsetPairvizUniqueGzpath(arg SubsetArgs) error {
 	return SubsetPairvizUnique(gzr, gzw, arg.Seed, arg.Prop)
 }
 
+// Subset multiple gzipped pairviz files
 func SubsetPairvizUniqueGzpaths(args ...SubsetArgs) error {
 	for _, arg := range args {
 		err := SubsetPairvizUniqueGzpath(arg)
@@ -74,12 +77,14 @@ func SubsetPairvizUniqueGzpaths(args ...SubsetArgs) error {
 	return nil
 }
 
+// Same as SubsetArgs without a Prop
 type IoSet struct {
 	Inpath string
 	Outpath string
 	Seed int64
 }
 
+// Everything needed to make sure a bunch of pairviz files are downsampled to the same average final number of unique reads
 type DownsampleArgs struct {
 	IoSets []IoSet
 	Countspath string
@@ -100,6 +105,7 @@ func GetArgs() DownsampleArgs {
 	return args
 }
 
+// Identify the lowest count, then find the proportion that will reduce all counts to match the lowest count
 func GetLowestProps(counts []int) []float64 {
 	lowest := 1000000000000000
 	for _, count := range counts {
