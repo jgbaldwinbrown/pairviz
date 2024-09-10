@@ -13,41 +13,44 @@ pandas
 seaborn
 ```
 
+### Associated repositories
+
+- [https://github.com/jgbaldwinbrown/covplots](https://github.com/jgbaldwinbrown/covplots)
+	- This package is designed for plotting data in .bed files and was designed for plotting the output of pairviz
+
 ## Working tools
 
-### `pairviz.py`
+### `pairviz`
 
 Pairviz converts .pairs files to tab-separated tables that are ready for plotting. The usage is:
 
 ```
-usage: Count up pairing and chromosome self-interactions in Hi-C .pairs files
-       [-h] [-w WINDOW\_SIZE] [-s STEP\_SIZE] [-c] [-i] [-d DISTANCE] [-f]
-       [-g GENOME\_LENGTH]
-       [input [input ...]]
-
-positional arguments:
-  input                 One or more .pairs files to use as input (default =
-                        stdin).
-
-optional arguments:
-  -h, --help            show this help message and exit
-  -w WINDOW\_SIZE, --window\_size WINDOW\_SIZE
-                        The size of the sliding window to calculate (default =
-                        100kb).
-  -s STEP\_SIZE, --step\_size STEP\_SIZE
-                        The distance to slide the window each step (default =
-                        10kb).
-  -c, --chromosome      Ignore sliding window analysis and perform a
-                        chromosome-wide count (default = False).
-  -i, --standard\_input  Take standard input and other input files (default =
-                        False)
-  -d DISTANCE, --distance DISTANCE
-                        Distance away that two reads can be before they are
-                        ignored (default = 5Mb)
-  -f, --no\_fpkm         Calculate fpkm along with counts (default = False)
-  -g GENOME\_LENGTH, --genome\_length GENOME\_LENGTH
-                        Genome size for purpose of fpkm calculations (no
-                        default; required if fpkm=True)
+Usage of pairviz:
+  -G	Print two entries for each chromosome location, one for each genome, correctly distinguishing self and paired reads (default = false).
+  -c	Calculate whole-chromosome statistics, not sliding windows.
+  -d int
+    	Distance between two paired reads before they are ignored. (default -1)
+  -f	Do not compute fpkm statistics.
+  -g int
+    	unused
+  -i	Use Stdin as input (ignored; always do this anyway).
+  -j	Output as JSON
+  -m int
+    	Minimum distance between two self reads reads. (default -1)
+  -n string
+    	Name to add to end of table.
+  -pm int
+    	Minimum distance between two paired reads. (default -1)
+  -r string
+    	Calculate statistics in a set of regions specified by this bedfile (not compatible with whole-chromosome statistics or window statistics).
+  -rlen int
+    	Length of reads in pairs (used to calculate overlapping or not; skipped otherwise). (default -1)
+  -s int
+    	Window step distance. (default -1)
+  -sim int
+    	Minimum distance between inward-facing self reads. (default -1)
+  -w int
+    	Window size. (default -1)
 ```
 
 ### `pairviz_plot.py`
