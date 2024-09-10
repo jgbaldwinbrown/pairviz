@@ -9,6 +9,7 @@ import (
 	"strings"
 )
 
+// Format a number of basepairs into a human-readable format
 func BpFormat(bp int64) string {
 	if bp >= 1e15 && bp % 1e15 == 0 {
 		return fmt.Sprintf("%vEb", bp / 1e15)
@@ -29,11 +30,13 @@ func BpFormat(bp int64) string {
 	return fmt.Sprintf("%vbp", bp)
 }
 
+// Name here is the name of a genotype, and Ref is the name of the reference genome used for alignment
 type NameRef struct {
 	Name string
 	Ref string
 }
 
+// Convert a name of the format "genotype_tissue" into pretty-printed genotype and tissue, space separated
 func Pnames(name string) string {
 	pnames := map[string]string {
 		"ixa4": "Iso1 X A4",
@@ -59,6 +62,7 @@ func Pnames(name string) string {
 	return fmt.Sprintf("%v %v", pnames[fields[0]], tissue[fields[1]])
 }
 
+// Generate jobs to run starting from namerefs
 func MakeArgs(maxdist int64, namerefs ...NameRef) []Job {
 	as := make([]Job, 0, len(namerefs))
 	for _, nr := range namerefs {
@@ -76,6 +80,7 @@ func MakeArgs(maxdist int64, namerefs ...NameRef) []Job {
 	return as
 }
 
+// Generate jobs to run in the "final" folder
 func MakeArgsFinal(maxdist int64, namerefs ...NameRef) []Job {
 	as := make([]Job, 0, len(namerefs))
 	for _, nr := range namerefs {
@@ -128,6 +133,7 @@ func MakeFullArgsFinal() []Job {
 	return MakeArgsFinal(3000, MakeFullNameRefs()...)
 }
 
+// Write all of the jobs as JSON for passing to the register program
 func PrintAllJobs(w io.Writer, jobs []Job) error {
 	enc := json.NewEncoder(w)
 	enc.SetEscapeHTML(false)

@@ -16,6 +16,7 @@ func handle(format string) func(...any) error {
 	}
 }
 
+// The statistics for one read
 type Read struct {
 	Chrom string
 	Parent string
@@ -24,6 +25,7 @@ type Read struct {
 	Dir int
 }
 
+// The statistics for one read pair
 type Pair struct {
 	Read1 Read
 	Read2 Read
@@ -65,6 +67,7 @@ func (p Pair) Face() Facing {
 	return Unknown
 }
 
+// Read types can be self, pair, or trans-chromosome
 func (p Pair) ReadType() ReadType {
 	if p.Read1.Chrom != p.Read2.Chrom {
 		return TransType
@@ -75,6 +78,7 @@ func (p Pair) ReadType() ReadType {
 	return PairType
 }
 
+// Parse a .pairs file read into a Read; panic on error
 func ParseRead(fields []string) (read Read) {
 	read.Ok = fields[0] != "!"
 	if !read.Ok {
@@ -101,6 +105,7 @@ func ParseRead(fields []string) (read Read) {
 	return
 }
 
+// Parse both reads for a line into a read pair; panic on error
 func ParsePair(line []string) (pair Pair, ok bool) {
 	if !IsAPair(line) {
 		ok = false
@@ -135,6 +140,7 @@ func CheckGood(line []string) bool {
 
 var stdout *os.File
 
+// Grow the length of a slice to newlen, and the capacity to newlen * 2
 func GrowSlice[T any](sl []T, newlen int64) []T {
 	if len(sl) < int(newlen) {
 		nsl := make([]T, newlen, newlen*2)
@@ -144,11 +150,13 @@ func GrowSlice[T any](sl []T, newlen int64) []T {
 	return sl
 }
 
+// Put a value into an index of a slice in place, growing the slice as needed
 func SlicePut[T any](sl *[]T, idx int64, val T) {
 	*sl = GrowSlice(*sl, idx+1)
 	(*sl)[idx]=val
 }
 
+// Increment the value stored in the specified index, growing the slice as needed
 func SliceInc(sl *[]int64, idx int64) {
 	if sl == nil {
 		return
@@ -157,6 +165,7 @@ func SliceInc(sl *[]int64, idx int64) {
 	(*sl)[idx]++
 }
 
+// Increment the value in the specified index, but do nothing if idx >= max or slice is nil
 func SliceIncMax(sl *[]int64, idx int64, max int64) {
 	if sl == nil  || idx >= max {
 		return
@@ -165,6 +174,12 @@ func SliceIncMax(sl *[]int64, idx int64, max int64) {
 	(*sl)[idx]++
 }
 
+// Build histogram of all types of pair distances below maxdist. r must point to a .pairs file, and w will output a tab-separated file of counts with this format:
+// distance
+// paired self trans selfTrans pairedTrans
+// pairedIn selfIn transIn selfTransIn pairedTransIn
+// pairedOut selfOut transOut selfTransOut pairedTransOut
+// pairedMatched selfMatched transMatched selfTransMatched pairedTransMatched
 func Run(maxdist int64, r io.Reader, w io.Writer) error {
 	h := handle("Run: %w")
 	cr := csv.NewReader(r)

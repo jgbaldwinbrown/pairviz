@@ -10,6 +10,7 @@ import (
 	"encoding/csv"
 )
 
+// Reads can be paired, self-interacting, or trans-interacting with another chromosome
 type ReadType int
 
 const (
@@ -19,6 +20,7 @@ const (
 	TransType
 )
 
+// The specification for acceptable distances, facings, and read types
 type FilterSet struct {
 	MaxDist int64
 	MinDist int64
@@ -26,6 +28,7 @@ type FilterSet struct {
 	ReadTypes []ReadType
 }
 
+// Check if a read is acceptable to this filter set
 func (f FilterSet) Check(dist int64, face Facing, rtype ReadType) bool {
 	if dist < f.MinDist {
 		return false
@@ -59,10 +62,12 @@ func (f FilterSet) Check(dist int64, face Facing, rtype ReadType) bool {
 	return true
 }
 
+// A set of filter sets
 type FilterArgs struct {
 	FilterSets []FilterSet
 }
 
+// Read a set of json-formatted filter sets
 func GetFilterArgsFromReader(r io.Reader) (FilterArgs, error) {
 	h := handle("GetFilterArgsFromReader: %w")
 	var args FilterArgs
@@ -97,6 +102,7 @@ func GetFilterArgs() (FilterArgs, error) {
 	return args, nil
 }
 
+// Read in a .pairs file, filter them, then write out a subsetted .pairs file
 func RunFilter(r io.Reader, w io.Writer, args FilterArgs) error {
 	h := handle("Run: %w")
 	cr := csv.NewReader(r)

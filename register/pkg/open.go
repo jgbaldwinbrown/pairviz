@@ -10,6 +10,7 @@ import (
 
 var gzRe = regexp.MustCompile(`\.gz$`)
 
+// A buffered reader for a file
 type Reader struct {
 	fp *os.File
 	*bufio.Reader
@@ -27,6 +28,7 @@ func Open(path string) (*Reader, error) {
 	return &Reader{ fp, bufio.NewReader(fp) }, nil
 }
 
+// A reader for reading from a gzipped file
 type GzReader struct {
 	r *Reader
 	*gzip.Reader
@@ -43,6 +45,7 @@ func (r *GzReader) Close() error {
 	return err
 }
 
+// Open a path and gunzip the input stream
 func OpenGz(path string) (*GzReader, error) {
 	r, e := Open(path)
 	if e != nil {
@@ -55,6 +58,7 @@ func OpenGz(path string) (*GzReader, error) {
 	return &GzReader{r, gr}, nil
 }
 
+// Open a path and gunzip the input stream if the path ends in .gz
 func OpenMaybeGz(path string) (io.ReadCloser, error) {
 	if gzRe.MatchString(path) {
 		return OpenGz(path)
@@ -62,11 +66,13 @@ func OpenMaybeGz(path string) (io.ReadCloser, error) {
 	return Open(path)
 }
 
+// A buffered writer to a file
 type Writer struct {
 	fp *os.File
 	*bufio.Writer
 }
 
+// A gzipped buffered writer to a file
 type GzWriter struct {
 	w *Writer
 	*gzip.Writer
@@ -102,6 +108,7 @@ func (w *GzWriter) Close() error {
 	return err
 }
 
+// Create a file and gzip the output stream
 func CreateGz(path string) (*GzWriter, error) {
 	w, e := Create(path)
 	if e != nil {
@@ -111,6 +118,7 @@ func CreateGz(path string) (*GzWriter, error) {
 	return &GzWriter{w, gw}, nil
 }
 
+// Create a file and automatically gzip the output stream if the path name ends in .gz
 func CreateMaybeGz(path string) (io.WriteCloser, error) {
 	if gzRe.MatchString(path) {
 		return CreateGz(path)
