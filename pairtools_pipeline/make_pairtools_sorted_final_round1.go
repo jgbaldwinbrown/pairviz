@@ -12,6 +12,15 @@ import (
 	"os"
 )
 
+// 19G	/scratch/general/vast/u6012238/drex_hic/data/26016R/Fastq/26016X1_20250228_LH00227_0141_A22YGKNLT3_S1_L006_R1_001.fastq.gz
+// 20G	/scratch/general/vast/u6012238/drex_hic/data/26016R/Fastq/26016X1_20250228_LH00227_0141_A22YGKNLT3_S1_L006_R2_001.fastq.gz
+// 16G	/scratch/general/vast/u6012238/drex_hic/data/26016R/Fastq/26016X2_20250228_LH00227_0141_A22YGKNLT3_S2_L006_R1_001.fastq.gz
+// 17G	/scratch/general/vast/u6012238/drex_hic/data/26016R/Fastq/26016X2_20250228_LH00227_0141_A22YGKNLT3_S2_L006_R2_001.fastq.gz
+// 33G	/scratch/general/vast/u6012238/drex_hic/data/26016R/Fastq/26016X3_20250228_LH00227_0141_A22YGKNLT3_S3_L006_R1_001.fastq.gz
+// 34G	/scratch/general/vast/u6012238/drex_hic/data/26016R/Fastq/26016X3_20250228_LH00227_0141_A22YGKNLT3_S3_L006_R2_001.fastq.gz
+// 25G	/scratch/general/vast/u6012238/drex_hic/data/26016R/Fastq/26016X4_20250228_LH00227_0141_A22YGKNLT3_S4_L006_R1_001.fastq.gz
+// 17G	/scratch/general/vast/u6012238/drex_hic/data/26016R/Fastq/26016X4_20250228_LH00227_0141_A22YGKNLT3_S4_L006_R2_001.fastq.gz
+
 type Params struct {
 	Name string
 	SpecialName string
@@ -239,12 +248,12 @@ func MakeSplit(p Params, i int64) error {
 	fmt.Fprintf(
 		w,
 		`#!/bin/bash
-set -e
 #SBATCH -t 72:00:00    #max:    72 hours (24 on ash)
 #SBATCH -N 1          #format: count or min-max
 #SBATCH -A owner-guest    #values: yandell, yandell-em (ember), ucgd-kp (kingspeak)
 #SBATCH -p notchpeak-guest    #kingspeak, ucgd-kp, kingspeak-freecycle, kingspeak-guest
 #SBATCH -J %v_split_%v        #Job name
+set -e
 
 NUM_CORES="${SLURM_CPUS_ON_NODE}"
 
@@ -325,12 +334,12 @@ func MakeEnds(p Params) error {
 	fmt.Fprintf(
 		w,
 		`#!/bin/bash
-set -e
 #SBATCH -t 72:00:00    #max:    72 hours (24 on ash)
 #SBATCH -N 1          #format: count or min-max
 #SBATCH -A owner-guest    #values: yandell, yandell-em (ember), ucgd-kp (kingspeak)
 #SBATCH -p notchpeak-guest    #kingspeak, ucgd-kp, kingspeak-freecycle, kingspeak-guest
 #SBATCH -J %v_end        #Job name
+set -e
 
 NUM_CORES="${SLURM_CPUS_ON_NODE}"
 
@@ -367,12 +376,12 @@ func MakeStarts(p Params) error {
 	fmt.Fprintf(
 		w,
 		`#!/bin/bash
-set -e
 #SBATCH -t 72:00:00    #max:    72 hours (24 on ash)
 #SBATCH -N 1          #format: count or min-max
 #SBATCH -A owner-guest    #values: yandell, yandell-em (ember), ucgd-kp (kingspeak)
 #SBATCH -p notchpeak-guest    #kingspeak, ucgd-kp, kingspeak-freecycle, kingspeak-guest
 #SBATCH -J %v_start        #Job name
+set -e
 
 NUM_CORES="${SLURM_CPUS_ON_NODE}"
 
@@ -390,7 +399,7 @@ make -j $NUM_CORES %v %v
 	return nil
 }
 
-var tissueRe = regexp.MustCompile(`_(adult|sal|brain|fat)`)
+var tissueRe = regexp.MustCompile(`_(adult|sal|brain|fat|drex)`)
 var rescueRe = regexp.MustCompile(`hmrxw501|iso1xlhr`)
 
 func GetParamRef(name string) string {
@@ -502,6 +511,26 @@ func FullParams(run string) []Params {
 	indirPrefix := "/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/hic4_final/data/21326R/"
 	refdirPrefix := "/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/hic4_final/refs/combos/"
 	outdirPrefix := "/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/hic5_final_ecoli/out/"
+	scriptdir := "scripts/"
+
+	if run == "hic4" {
+		outdirPrefix = "/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/hic4_final/out/"
+	}
+
+	return BuildParams(names, indirPrefix, refdirPrefix, outdirPrefix, scriptdir)
+}
+
+func DrexParams(run string) []Params {
+	names := []string {
+		"s14xw501_drex",
+		"iso1xa7_drex",
+		"a7xs14_drex",
+		"iso1xw501_drex",
+	}
+
+	indirPrefix := "/scratch/general/vast/u6012238/drex_hic/named_data/"
+	refdirPrefix := "/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/hic4_final/refs/combos/"
+	outdirPrefix := "/scratch/general/vast/u6012238/drex_hic/out/"
 	scriptdir := "scripts/"
 
 	if run == "hic4" {
@@ -664,8 +693,14 @@ func CalcSplitsFromFq(p Params) (nsplits int64, err error) {
 
 func main() {
 	run := flag.String("r", "", "run (try using \"hic4\")")
+	drex := flag.Bool("d", false, "Build drex run")
 	flag.Parse()
+
 	params := FullParams(*run)
+	if *drex {
+		params = DrexParams(*run)
+	}
+
 	for i, _ := range params {
 		if err := UpdateNsplits(&params[i]); err != nil {
 			panic(err)
