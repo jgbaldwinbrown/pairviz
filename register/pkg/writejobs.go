@@ -99,6 +99,44 @@ func MakeArgsFinal(maxdist int64, namerefs ...NameRef) []Job {
 	return as
 }
 
+// Generate jobs to run in the "drex" folder
+func MakeArgsDrex(maxdist int64, namerefs ...NameRef) []Job {
+	as := make([]Job, 0, len(namerefs))
+	for _, nr := range namerefs {
+		as = append(as, Job{
+			Register: true,
+			Inpath: fmt.Sprintf("../../rehead/drex_original/%v_to_%v_rehead.pairs.gz", nr.Name, nr.Ref),
+			Outpath: fmt.Sprintf("%v_to_%v/%v_to_%v_rehead_registers_max%v.txt", nr.Name, nr.Ref, nr.Name, nr.Ref, BpFormat(maxdist)),
+			Plot: true,
+			Plotoutpath: fmt.Sprintf("%v_to_%v/%v_to_%v_rehead_registers_max%v.pdf", nr.Name, nr.Ref, nr.Name, nr.Ref, BpFormat(maxdist)),
+			DirPlotoutpath: fmt.Sprintf("%v_to_%v/%v_to_%v_rehead_registers_max%v_dir.pdf", nr.Name, nr.Ref, nr.Name, nr.Ref, BpFormat(maxdist)),
+			Plotname: Pnames(nr.Name),
+			Mindist: 0,
+			Maxdist: maxdist,
+		})
+	}
+	return as
+}
+
+// Generate jobs to run in the "drex" folder
+func MakeArgsDrex3(maxdist int64, namerefs ...NameRef) []Job {
+	as := make([]Job, 0, len(namerefs))
+	for _, nr := range namerefs {
+		as = append(as, Job{
+			Register: true,
+			Inpath: fmt.Sprintf("../../rehead/drex_2/%v_to_%v_rehead.pairs.gz", nr.Name, nr.Ref),
+			Outpath: fmt.Sprintf("%v_to_%v/%v_to_%v_rehead_registers_max%v.txt", nr.Name, nr.Ref, nr.Name, nr.Ref, BpFormat(maxdist)),
+			Plot: true,
+			Plotoutpath: fmt.Sprintf("%v_to_%v/%v_to_%v_rehead_registers_max%v.pdf", nr.Name, nr.Ref, nr.Name, nr.Ref, BpFormat(maxdist)),
+			DirPlotoutpath: fmt.Sprintf("%v_to_%v/%v_to_%v_rehead_registers_max%v_dir.pdf", nr.Name, nr.Ref, nr.Name, nr.Ref, BpFormat(maxdist)),
+			Plotname: Pnames(nr.Name),
+			Mindist: 0,
+			Maxdist: maxdist,
+		})
+	}
+	return as
+}
+
 func MakeVerySmallArgs() []Job {
 	return MakeArgs(10000, NameRef{"nxw_sal", "nxw"}, NameRef{"nxw_adult", "nxw"})
 }
@@ -125,12 +163,41 @@ func MakeFullNameRefs() []NameRef {
 	}
 }
 
+func MakeDrexNameRefs() []NameRef {
+	return []NameRef {
+		NameRef{"ixw_drex", "ixw"},
+		NameRef{"ixa7_drex", "ixa7"},
+		NameRef{"a7xn_drex", "a7xn"},
+		NameRef{"a7xn_drex", "ixw"},
+		NameRef{"nxw_drex", "nxw"},
+	}
+}
+
+func MakeDrexNameRefs2() []NameRef {
+	return []NameRef {
+		NameRef{"ixw_drex", "ixw"},
+		NameRef{"ixa7_drex", "ixa7"},
+		NameRef{"a7xn_drex", "a7xn"},
+		NameRef{"nxw_drex", "nxw"},
+	}
+}
+
 func MakeFullArgs() []Job {
 	return MakeArgs(3000, MakeFullNameRefs()...)
 }
 
 func MakeFullArgsFinal() []Job {
 	return MakeArgsFinal(3000, MakeFullNameRefs()...)
+}
+
+func MakeFullArgsDrex(style string) []Job {
+	if style == "d" {
+		return MakeArgsDrex(3000, MakeDrexNameRefs()...)
+	}
+	if style == "d2" {
+		return MakeArgsDrex(3000, MakeDrexNameRefs2()...)
+	}
+	return MakeArgsDrex3(3000, MakeDrexNameRefs2()...)
 }
 
 // Write all of the jobs as JSON for passing to the register program
@@ -148,16 +215,28 @@ func PrintAllJobs(w io.Writer, jobs []Job) error {
 
 type Flags struct {
 	Final bool
+	Drex bool
+	Drex2 bool
+	Drex3 bool
 }
 
 func FullPrintJobs() {
 	var f Flags
 	flag.BoolVar(&f.Final, "f", false, "Final version")
+	flag.BoolVar(&f.Drex, "d", false, "Drex runs")
+	flag.BoolVar(&f.Drex2, "d2", false, "Drex runs (no a7xn_ixw)")
+	flag.BoolVar(&f.Drex3, "d3", false, "Drex runs (no a7xn_ixw; from drex_2 directory)")
 	flag.Parse()
 
 	var args []Job
 	if f.Final {
 		args = MakeFullArgsFinal()
+	} else if f.Drex {
+		args = MakeFullArgsDrex("d")
+	} else if f.Drex2 {
+		args = MakeFullArgsDrex("d2")
+	} else if f.Drex3 {
+		args = MakeFullArgsDrex("d3")
 	} else {
 		args = MakeFullArgs()
 	}
