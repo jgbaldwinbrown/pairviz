@@ -540,6 +540,24 @@ func DrexParams(run string) []Params {
 	return BuildParams(names, indirPrefix, refdirPrefix, outdirPrefix, scriptdir)
 }
 
+func NakedParams(run string) []Params {
+	names := []string {
+		"fourway_naked",
+		"fourwaypcr_naked",
+	}
+
+	indirPrefix := "/scratch/general/vast/u6012238/naked_dna_hic/named_data/"
+	refdirPrefix := "/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/hic4_final/refs/combos/"
+	outdirPrefix := "/scratch/general/vast/u6012238/naked_dna_hic/out/"
+	scriptdir := "scripts/"
+
+	if run == "hic4" {
+		outdirPrefix = "/uufs/chpc.utah.edu/common/home/shapiro-group3/jim/new/fly/hic4_final/out/"
+	}
+
+	return BuildParams(names, indirPrefix, refdirPrefix, outdirPrefix, scriptdir)
+}
+
 type GzScanner struct {
 	fp *os.File
 	gr *gzip.Reader
@@ -694,11 +712,15 @@ func CalcSplitsFromFq(p Params) (nsplits int64, err error) {
 func main() {
 	run := flag.String("r", "", "run (try using \"hic4\")")
 	drex := flag.Bool("d", false, "Build drex run")
+	naked := flag.Bool("n", false, "Build naked dna run")
 	flag.Parse()
 
 	params := FullParams(*run)
 	if *drex {
 		params = DrexParams(*run)
+	}
+	if *naked {
+		params = NakedParams(*run)
 	}
 
 	for i, _ := range params {
