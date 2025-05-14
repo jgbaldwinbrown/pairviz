@@ -19,6 +19,7 @@ type GenoChrSpan struct {
 
 type MultiWinStats struct {
 	Hits map[GenoChrSpan]int64
+	LongRangeHits map[GenoChrSpan]int64
 	Genos []string
 	GenosMap map[string]struct{}
 	Chrs []string
@@ -33,6 +34,7 @@ type MultiWinStats struct {
 func MakeMultiWinStats() MultiWinStats {
 	var m MultiWinStats
 	m.Hits = map[GenoChrSpan]int64{}
+	m.LongRangeHits = map[GenoChrSpan]int64{}
 	m.GenosMap = map[string]struct{}{}
 	m.ChrLens = map[string]int64{}
 	return m
@@ -54,40 +56,60 @@ func OrderedGenoPair(s1, s2 string) GenoPair {
 	return GenoPair{s2, s1}
 }
 
-func AddHitMulti(m *MultiWinStats, p Pair) {
+func RangeTooLong(maxdist int64, pair Pair) bool {
+	if pair.Read1.Chrom != pair.Read2.Chrom {
+		return true
+	}
+	dist := Abs(pair.Read1.Pos - pair.Read2.Pos)
+	if dist > maxdist {
+		return true
+	}
+	return false
+}
+
+
+func AddHitMultiCore(hits map[GenoChrSpan]int64, winsize, winstep int64, p Pair) {
 	gp := OrderedGenoPair(p.Read1.Parent, p.Read2.Parent)
 
-	hitwins := WinsHitMulti(p.Read1.Pos, m.Winsize, m.Winstep)
+	hitwins := WinsHitMulti(p.Read1.Pos, winsize, winstep)
 	for i := hitwins.Start; i < hitwins.End; i += hitwins.Step {
-		start := i * m.Winstep
+		start := i * winstep
 		gcp := GenoChrSpan {
 			GenoPair: gp,
 			ChrSpan: fastats.ChrSpan {
 				Chr: p.Read1.Chrom,
 				Span: fastats.Span {
 					Start: start,
-					End: start + m.Winsize,
+					End: start + winsize,
 				},
 			},
 		}
-		m.Hits[gcp]++
+		hits[gcp]++
 	}
 
-	hitwins = WinsHitMulti(p.Read2.Pos, m.Winsize, m.Winstep)
+	hitwins = WinsHitMulti(p.Read2.Pos, winsize, winstep)
 	for i := hitwins.Start; i < hitwins.End; i += hitwins.Step {
-		start := i * m.Winstep
+		start := i * winstep
 		gcp := GenoChrSpan {
 			GenoPair: gp,
 			ChrSpan: fastats.ChrSpan {
 				Chr: p.Read2.Chrom,
 				Span: fastats.Span {
 					Start: start,
-					End: start + m.Winsize,
+					End: start + winsize,
 				},
 			},
 		}
-		m.Hits[gcp]++
+		hits[gcp]++
 	}
+}
+
+func AddHitMulti(m *MultiWinStats, p Pair) {
+	AddHitMultiCore(m.Hits, m.Winsize, m.Winstep, p)
+}
+
+func AddLongRangeHitMulti(m *MultiWinStats, p Pair) {
+	AddHitMultiCore(m.LongRangeHits, m.Winsize, m.Winstep, p)
 }
 
 func WinStatsMulti(flags Flags, r io.Reader) MultiWinStats {
@@ -105,9 +127,6 @@ func WinStatsMulti(flags Flags, r io.Reader) MultiWinStats {
 
 		pair, ok := ParsePair(s.Line())
 		if !ok {
-			continue
-		}
-		if RangeBad(flags.Distance, flags.MinDistance, flags.PairMinDistance, flags.SelfInMinDistance, pair) {
 			continue
 		}
 
@@ -129,7 +148,6 @@ func WinStatsMulti(flags Flags, r io.Reader) MultiWinStats {
 		if pair.Read1.Pos >= chrlen {
 			stats.ChrLens[pair.Read1.Chrom] = pair.Read1.Pos + 1
 		}
-
 		chrlen, ok = stats.ChrLens[pair.Read2.Chrom]
 		if !ok {
 			chrlen = pair.Read2.Pos + 1
@@ -140,7 +158,13 @@ func WinStatsMulti(flags Flags, r io.Reader) MultiWinStats {
 			stats.ChrLens[pair.Read2.Chrom] = pair.Read2.Pos + 1
 		}
 
-		AddHitMulti(&stats, pair)
+		if RangeTooLong(flags.Distance, pair) {
+			AddLongRangeHitMulti(&stats, pair)
+		} else if RangeBad(flags.Distance, flags.MinDistance, flags.PairMinDistance, flags.SelfInMinDistance, pair) {
+			continue
+		} else {
+			AddHitMulti(&stats, pair)
+		}
 	}
 	return stats
 }
@@ -152,7 +176,7 @@ func WriteWindowsMulti(w io.Writer, m MultiWinStats) error {
 	for i, geno1 := range m.Genos {
 		for _, geno2 := range m.Genos[i:] {
 			gp := OrderedGenoPair(geno1, geno2)
-			if _, e := fmt.Fprintf(w, "\t%v_%v", gp.Geno1, gp.Geno2); e != nil {
+			if _, e := fmt.Fprintf(w, "\t%v_%v\t%v_%v_longrange", gp.Geno1, gp.Geno2, gp.Geno1, gp.Geno2); e != nil {
 				return e
 			}
 		}
@@ -176,6 +200,9 @@ func WriteWindowsMulti(w io.Writer, m MultiWinStats) error {
 						ChrSpan: fastats.ChrSpan {Chr: chr, Span: fastats.Span{Start: start, End: end}},
 					}
 					if _, e := fmt.Fprintf(w, "\t%v", m.Hits[gcp]); e != nil {
+						return e
+					}
+					if _, e := fmt.Fprintf(w, "\t%v", m.LongRangeHits[gcp]); e != nil {
 						return e
 					}
 				}
