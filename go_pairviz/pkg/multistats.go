@@ -5,6 +5,7 @@ import (
 	"io"
 	"github.com/jgbaldwinbrown/fasttsv"
 	"fmt"
+	"github.com/jgbaldwinbrown/iterh"
 )
 
 type GenoPair struct {
@@ -112,7 +113,52 @@ func AddLongRangeHitMulti(m *MultiWinStats, p Pair) {
 	AddHitMultiCore(m.LongRangeHits, m.Winsize, m.Winstep, p)
 }
 
+func OverlapChrSpan(r Read, c fastats.ChrSpan) bool {
+	if r.Chrom != c.Chr {
+		return false
+	}
+	if r.Pos < c.Start {
+		return false
+	}
+	return r.Pos < c.End
+}
+
+func ReadWithinSpans(OkSpans []fastats.ChrSpan, r Read) bool {
+	for _, span := range OkSpans {
+		if OverlapChrSpan(r, span) {
+			return true
+		}
+	}
+	return false
+}
+
+func PairWithinSpans(OkSpans []fastats.ChrSpan, p Pair) bool {
+	return ReadWithinSpans(OkSpans, p.Read1) && ReadWithinSpans(OkSpans, p.Read2)
+}
+
+func ReadChrSpans(path string) ([]fastats.ChrSpan, error) {
+	biter := iterh.PathIter(path, fastats.ParseBedFlat)
+	b, e := iterh.CollectWithError(biter)
+	if e != nil {
+		return nil, e
+	}
+	cs := make([]fastats.ChrSpan, 0, len(b))
+	for _, ent := range b {
+		cs = append(cs, ent.ChrSpan)
+	}
+	return cs, nil
+}
+
 func WinStatsMulti(flags Flags, r io.Reader) MultiWinStats {
+	var censorSpans []fastats.ChrSpan
+	if flags.CensorPath != "" {
+		var e error
+		censorSpans, e = ReadChrSpans(flags.CensorPath)
+		if e != nil {
+			panic(e)
+		}
+	}
+
 	stats := MakeMultiWinStats()
 	stats.Winsize = flags.WinSize
 	stats.Winstep = flags.WinStep
@@ -156,6 +202,10 @@ func WinStatsMulti(flags Flags, r io.Reader) MultiWinStats {
 		}
 		if pair.Read2.Pos >= chrlen {
 			stats.ChrLens[pair.Read2.Chrom] = pair.Read2.Pos + 1
+		}
+
+		if len(censorSpans) > 0 && !PairWithinSpans(censorSpans, pair) {
+			continue
 		}
 
 		if RangeTooLong(flags.Distance, pair) {

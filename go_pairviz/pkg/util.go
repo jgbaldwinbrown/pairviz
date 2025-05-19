@@ -25,6 +25,7 @@ type Flags struct {
 	SelfInMinDistance int64
 	ReadLen int64
 	JsonOut bool
+	CensorPath string
 }
 
 // Data associated with a single read from a read pair
@@ -110,6 +111,7 @@ func GetFlags() (f Flags) {
 	flag.BoolVar(&f.SeparateGenomes, "G", false, "Print two entries for each chromosome location, one for each genome, correctly distinguishing self and paired reads (default = false).")
 	flag.IntVar(&readlentemp, "rlen", -1, "Length of reads in pairs (used to calculate overlapping or not; skipped otherwise).")
 	flag.BoolVar(&f.JsonOut, "j", false, "Output as JSON")
+	flag.StringVar(&f.CensorPath, "C", "", "Path to bed file containing regions to allow (only for pairviz_multi)")
 
 	_ = flag.Int("g", 0, "unused")
 	flag.Parse()
