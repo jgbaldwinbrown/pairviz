@@ -195,7 +195,7 @@ func Abs(x int64) int64 {
 
 // Check if a .pairs file line represents a pair rather than, say, a comment
 func IsAPair(line []string) bool {
-	if len(line) < 5 {
+	if len(line) < 7 {
 		return false
 	}
 	if line[0][0] == '#' {
