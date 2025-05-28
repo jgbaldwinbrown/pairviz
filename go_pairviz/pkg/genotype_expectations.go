@@ -1,6 +1,7 @@
 package pairviz
 
 import (
+	"flag"
 	"os"
 	"bufio"
 	"strconv"
@@ -122,19 +123,21 @@ func GenoPairChisq(pairs ...GenoPairCount) (chisq, p float64) {
 	return chisq, ChiSqP(chisq, float64(len(pairs) - 1))
 }
 
-func GenoPairChisqNoDivZero(pairs ...GenoPairCount) (chisq, p float64, skipped int) {
-	expect := GenoPairExpectedCounts(pairs...)
+func GenoPairChisqNoDivZero(pairs ...GenoPairCount) (expect []GenoPairCount, chisq, p float64, skipped int) {
+	expect = GenoPairExpectedCounts(pairs...)
 	oe := make([]ObservedExpected, 0, len(expect))
 	for i, p := range pairs {
 		oe = append(oe, ObservedExpected{Observed: p.Count, Expected: expect[i].Count})
 	}
 	chisq, skipped = ChiSqNoDivZero(oe...)
-	return chisq, ChiSqP(chisq, float64(len(pairs) - 1 - skipped)), skipped
+	return expect, chisq, ChiSqP(chisq, float64(len(pairs) - 1 - skipped)), skipped
 }
 
 type ChiP struct {
 	ChiSq float64
 	P float64
+	Expect []GenoPairCount
+	Actual []GenoPairCount
 }
 
 func ReadGenoPairChisq(r io.Reader) iter.Seq2[fastats.BedEntry[ChiP], error] {
@@ -158,7 +161,7 @@ func ReadGenoPairChisq(r io.Reader) iter.Seq2[fastats.BedEntry[ChiP], error] {
 				}
 				gpc = append(gpc, GenoPairCount{GenoPair: OrderedGenoPair(gp.Geno1, gp.Geno2), Count: count})
 			}
-			chi, p, _ := GenoPairChisqNoDivZero(gpc...)
+			expect, chi, p, _ := GenoPairChisqNoDivZero(gpc...)
 			start, e := strconv.ParseInt(ent.Line[1], 0, 64)
 			if e != nil {
 				return
@@ -169,7 +172,7 @@ func ReadGenoPairChisq(r io.Reader) iter.Seq2[fastats.BedEntry[ChiP], error] {
 			}
 			b := fastats.BedEntry[ChiP]{
 				ChrSpan: fastats.ChrSpan{Chr: ent.Line[0], Span: fastats.Span{start, end}},
-				Fields: ChiP{chi, p},
+				Fields: ChiP{chi, p, expect, gpc},
 			}
 			if !yield(b, nil) {
 				return
@@ -178,14 +181,37 @@ func ReadGenoPairChisq(r io.Reader) iter.Seq2[fastats.BedEntry[ChiP], error] {
 	}
 }
 
+type GenoPairChisqFlags struct {
+	PrintExpect bool
+	PrintActual bool
+}
+
 func FullGenoPairChisq() {
+	var f GenoPairChisqFlags
+	flag.BoolVar(&f.PrintExpect, "e", false, "print expected counts for each genotype")
+	flag.BoolVar(&f.PrintActual, "a", false, "print actual counts for each genotype")
+	flag.Parse()
+	
 	bw := bufio.NewWriter(os.Stdout)
 	defer func() {
 		if e := bw.Flush(); e != nil {
 			log.Fatal(e)
 		}
 	}()
-	if _, e := fmt.Fprintf(bw, "chr\tstart\tend\tchisq\tp\n"); e != nil {
+	if _, e := fmt.Fprintf(bw, "chr\tstart\tend\tchisq\tp"); e != nil {
+		log.Fatal(e)
+	}
+	if f.PrintExpect || f.PrintActual {
+		if _, e := fmt.Fprintf(bw, "\texpected"); e != nil {
+			log.Fatal(e)
+		}
+	}
+	if f.PrintActual {
+		if _, e := fmt.Fprintf(bw, "\tactual"); e != nil {
+			log.Fatal(e)
+		}
+	}
+	if _, e := fmt.Fprintf(bw, "\n"); e != nil {
 		log.Fatal(e)
 	}
 
@@ -194,7 +220,25 @@ func FullGenoPairChisq() {
 		if e != nil {
 			log.Fatal(e)
 		}
-		if _, e := fmt.Fprintf(bw, "%v\t%v\t%v\t%v\t%v\n", b.Chr, b.Start, b.End, b.Fields.ChiSq, b.Fields.P); e != nil {
+		if _, e := fmt.Fprintf(bw, "%v\t%v\t%v\t%v\t%v", b.Chr, b.Start, b.End, b.Fields.ChiSq, b.Fields.P); e != nil {
+			log.Fatal(e)
+		}
+		if f.PrintExpect {
+			if _, e := fmt.Fprintf(bw, "\t%v", b.Fields.Expect); e != nil {
+				log.Fatal(e)
+			}
+		}
+		if f.PrintActual {
+			if !f.PrintExpect {
+				if _, e := fmt.Fprintf(bw, "\t"); e != nil {
+					log.Fatal(e)
+				}
+			}
+			if _, e := fmt.Fprintf(bw, "\t%v", b.Fields.Actual); e != nil {
+				log.Fatal(e)
+			}
+		}
+		if _, e := fmt.Fprintf(bw, "\n"); e != nil {
 			log.Fatal(e)
 		}
 	}
