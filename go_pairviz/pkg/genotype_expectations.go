@@ -183,13 +183,11 @@ func ReadGenoPairChisq(r io.Reader) iter.Seq2[fastats.BedEntry[ChiP], error] {
 
 type GenoPairChisqFlags struct {
 	PrintExpect bool
-	PrintActual bool
 }
 
 func FullGenoPairChisq() {
 	var f GenoPairChisqFlags
-	flag.BoolVar(&f.PrintExpect, "e", false, "print expected counts for each genotype")
-	flag.BoolVar(&f.PrintActual, "a", false, "print actual counts for each genotype")
+	flag.BoolVar(&f.PrintExpect, "e", false, "print expected and actual counts, and ratio, for each genotype")
 	flag.Parse()
 	
 	bw := bufio.NewWriter(os.Stdout)
@@ -201,22 +199,22 @@ func FullGenoPairChisq() {
 	if _, e := fmt.Fprintf(bw, "chr\tstart\tend\tchisq\tp"); e != nil {
 		log.Fatal(e)
 	}
-	if f.PrintExpect || f.PrintActual {
-		if _, e := fmt.Fprintf(bw, "\texpected"); e != nil {
-			log.Fatal(e)
-		}
-	}
-	if f.PrintActual {
-		if _, e := fmt.Fprintf(bw, "\tactual"); e != nil {
-			log.Fatal(e)
-		}
-	}
-	if _, e := fmt.Fprintf(bw, "\n"); e != nil {
-		log.Fatal(e)
-	}
 
+	bedi := 0
 	bed := ReadGenoPairChisq(os.Stdin)
 	for b, e := range bed {
+		if bedi == 0 {
+			if f.PrintExpect {
+				for _, expect := range b.Fields.Expect {
+					if _, e := fmt.Fprintf(bw, "\t%v_%v", expect.Geno1, expect.Geno2); e != nil {
+						log.Fatal(e)
+					}
+				}
+			}
+			if _, e := fmt.Fprintf(bw, "\n"); e != nil {
+				log.Fatal(e)
+			}
+		}
 		if e != nil {
 			log.Fatal(e)
 		}
@@ -224,22 +222,17 @@ func FullGenoPairChisq() {
 			log.Fatal(e)
 		}
 		if f.PrintExpect {
-			if _, e := fmt.Fprintf(bw, "\t%v", b.Fields.Expect); e != nil {
-				log.Fatal(e)
-			}
-		}
-		if f.PrintActual {
-			if !f.PrintExpect {
-				if _, e := fmt.Fprintf(bw, "\t"); e != nil {
+			for i, expect := range b.Fields.Expect {
+				actual := b.Fields.Actual[i]
+				if _, e := fmt.Fprintf(bw, "\t%v,%v,%v", expect.Count, actual.Count, actual.Count / expect.Count); e != nil {
 					log.Fatal(e)
 				}
-			}
-			if _, e := fmt.Fprintf(bw, "\t%v", b.Fields.Actual); e != nil {
-				log.Fatal(e)
 			}
 		}
 		if _, e := fmt.Fprintf(bw, "\n"); e != nil {
 			log.Fatal(e)
 		}
+
+		bedi++
 	}
 }
