@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/jgbaldwinbrown/fastats/pkg"
 )
@@ -19,6 +20,14 @@ func Format(x, y string) string {
 		return x + "_" + y
 	}
 	return y + "_" + x
+}
+
+func SplitGeno(pair string) (geno1, geno2 string) {
+	geno1, geno2, found := strings.Cut(pair, "_")
+	if !found {
+		return geno1, ""
+	}
+	return geno1, geno2
 }
 
 var gpBracketRe = regexp.MustCompile(`{([^ ]*) ([^}]*)}`)
