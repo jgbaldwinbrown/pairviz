@@ -1,6 +1,7 @@
 package pairviz
 
 import (
+	"flag"
 	"io"
 	"strconv"
 	"fmt"
@@ -10,7 +11,7 @@ import (
 	"github.com/jgbaldwinbrown/csvh"
 )
 
-func LongRangeRatioPerSite(r io.Reader, w io.Writer) (err error) {
+func LongRangeRatioPerSite(r io.Reader, w io.Writer, numIdCols int) (err error) {
 	cw := csvh.CsvOut(w)
 	defer func() {
 		cw.Flush()
@@ -23,16 +24,16 @@ func LongRangeRatioPerSite(r io.Reader, w io.Writer) (err error) {
 			return e
 		}
 		if cri == 0 {
-			out = append(out[:0], "chr", "start", "end")
-			for i := 3; i < len(ent.Header); i += 2 {
+			out = append(out[:0], ent.Header[:numIdCols]...)
+			for i := numIdCols; i < len(ent.Header); i += 2 {
 				out = append(out, ent.Header[i])
 			}
 			if e := cw.Write(out); e != nil {
 				return e
 			}
 		}
-		out = append(out[:0], ent.Line[:3]...)
-		for i := 3; i < len(ent.Line); i += 2 {
+		out = append(out[:0], ent.Line[:numIdCols]...)
+		for i := numIdCols; i < len(ent.Line); i += 2 {
 			sr, e := strconv.ParseFloat(ent.Line[i], 64)
 			if e != nil {
 				return e
@@ -52,8 +53,15 @@ func LongRangeRatioPerSite(r io.Reader, w io.Writer) (err error) {
 	return nil
 }
 
+type longRangeRatioFlags struct {
+	NumIdCols int
+}
+
 func FullLongRangeRatio() {
-	if e := LongRangeRatioPerSite(os.Stdin, os.Stdout); e != nil {
+	var f longRangeRatioFlags
+	flag.IntVar(&f.NumIdCols, "n", 3, "number of ID columns (columns to ignore)")
+	flag.Parse()
+	if e := LongRangeRatioPerSite(os.Stdin, os.Stdout, f.NumIdCols); e != nil {
 		log.Fatal(e)
 	}
 }
