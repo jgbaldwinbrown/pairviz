@@ -12,6 +12,8 @@ require (
 	github.com/jgbaldwinbrown/lscan v0.1.0
 	github.com/jgbaldwinbrown/parallel_ordered v0.0.0-20240501182610-d39954467a28
 	github.com/jgbaldwinbrown/slide v0.1.1
+	github.com/jgbaldwinbrown/span v0.1.15
+	github.com/jgbaldwinbrown/zfile v0.1.12
 	github.com/montanaflynn/stats v0.7.1
 	github.com/sajari/regression v1.0.1
 	golang.org/x/sync v0.8.0
@@ -28,7 +30,6 @@ require (
 	github.com/gonum/mathext v0.0.0-20181121095525-8a4bf007ea55 // indirect
 	github.com/gonum/matrix v0.0.0-20181209220409-c518dec07be9 // indirect
 	github.com/jgbaldwinbrown/shellout v0.0.0-20220929214905-4c5332e9ea51 // indirect
-	github.com/jgbaldwinbrown/zfile v0.1.12 // indirect
 	github.com/ulikunitz/xz v0.5.12 // indirect
 	golang.org/x/exp v0.0.0-20230905200255-921286631fa9 // indirect
 	gonum.org/v1/gonum v0.14.0 // indirect

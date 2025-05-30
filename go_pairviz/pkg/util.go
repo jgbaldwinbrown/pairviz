@@ -37,6 +37,20 @@ type Read struct {
 	Dir int
 }
 
+func (r Read) Left() int64 {
+	if (r.Dir < 0) {
+		return r.Pos - 149
+	}
+	return r.Pos
+}
+
+func (r Read) Right() int64 {
+	if (r.Dir > 0) {
+		return r.Pos + 150
+	}
+	return r.Pos + 1
+}
+
 // The direction of a read pair
 type Facing int
 
