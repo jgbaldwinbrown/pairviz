@@ -160,8 +160,6 @@ func WinStatsMulti(flags Flags, r io.Reader) MultiWinStats {
 	}
 
 	stats := MakeMultiWinStats()
-	stats.Winsize = flags.WinSize
-	stats.Winstep = flags.WinStep
 	s := fasttsv.NewScanner(r)
 	for s.Scan() {
 		if IsAPair(s.Line()) {

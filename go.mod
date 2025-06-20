@@ -12,7 +12,7 @@ require (
 	github.com/jgbaldwinbrown/lscan v0.1.0
 	github.com/jgbaldwinbrown/parallel_ordered v0.0.0-20240501182610-d39954467a28
 	github.com/jgbaldwinbrown/slide v0.1.1
-	github.com/jgbaldwinbrown/span v0.1.15
+	github.com/jgbaldwinbrown/span v0.1.17
 	github.com/jgbaldwinbrown/zfile v0.1.12
 	github.com/montanaflynn/stats v0.7.1
 	github.com/sajari/regression v1.0.1
